@@ -16,3 +16,9 @@ def measure_all(qubits, base = 'Z'):
             res, prob = ns.qubits.measure(qubit, observable=ns.X)
             value = '|+>' if res == 0 else '|->'
         print(f'{qubit.name}: {value} (prob. {prob:.2f})')
+
+def print_nodes_all(nodes):
+    """Print information on a bunch of nodes"""
+
+    for node in nodes:
+        print(f'{node.name}, ports {[x[0] for x in node.ports.items()]}')
