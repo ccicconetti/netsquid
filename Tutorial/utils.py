@@ -1,5 +1,9 @@
 """Simple utilities and wrappers"""
 
+from collections.abc import Iterable
+
+import logging
+
 import netsquid as ns
 
 def print_dm_all(qubits):
@@ -22,3 +26,20 @@ def print_nodes_all(nodes):
 
     for node in nodes:
         print(f'{node.name}, ports {[x[0] for x in node.ports.items()]}')
+
+def print_dm_single(qubit):
+    """Print the name and reduced density matrix of a qubit"""
+    name = None
+    if isinstance(qubit, Iterable):
+        name = ','.join([x.name for x in qubit])
+    else:
+        name = qubit.name
+    logging.info(f'{name}, reduce dm:\n{ns.qubits.reduced_dm(qubit)}')
+
+def print_dm(qubits):
+    """Print the name and reduced density matrix of one or more qubits"""
+    if isinstance(qubits, Iterable):
+        for q in qubits:
+            print_dm_single(q)
+    else:
+        print_dm_single(qubits)
