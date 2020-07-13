@@ -21,6 +21,14 @@ def measure_all(qubits, base = 'Z'):
             value = '|+>' if res == 0 else '|->'
         print(f'{qubit.name}: {value} (prob. {prob:.2f})')
 
+def make_bell_pair():
+    """Create and return a Bell pair of qubits"""
+
+    q1, q2 = ns.qubits.create_qubits(2)
+    ns.qubits.operate(q1, ns.H)
+    ns.qubits.operate([q1, q2], ns.CNOT)
+    return [q1, q2]
+
 def print_nodes_all(nodes):
     """Print information on a bunch of nodes"""
 
