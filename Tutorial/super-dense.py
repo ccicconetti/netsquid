@@ -44,9 +44,6 @@ class Charlie(pydynaa.Entity):
         self.delay = delay
         self.entangled_qubits = None
         self.terminating = False
-        self._generate_handler = pydynaa.EventHandler(self._entangle_qubits)
-        self._wait(self._generate_handler, entity=self,
-                   event_type=Charlie._generate_evtype)
 
     def wait_for_alice(self, alice):
         """Wait for Alice to send an terminating event"""
@@ -75,9 +72,19 @@ class Charlie(pydynaa.Entity):
         self._schedule_after(rand_delay, Charlie.ready_evtype)
         self._schedule_after(self.period, Charlie._generate_evtype)
 
-    def start(self):
-        # Begin generating entanglement
+    def start(self, bob):
+        """Trigger start of the simulation"""
+
+        charlie_generate_evexpr = pydynaa.EventExpression(
+            source=self, event_type=Charlie._generate_evtype)
+        bob_ready_evexpr = pydynaa.EventExpression(
+            source=bob, event_type=Bob.decoded_evtype)
+        both_ready_evexpr = charlie_generate_evexpr & bob_ready_evexpr
+        self._generate_handler = pydynaa.ExpressionHandler(self._entangle_qubits)
+        self._wait(self._generate_handler, expression=both_ready_evexpr)
+
         self._schedule_now(Charlie._generate_evtype)
+        bob.mark_ready()
 
 class Alice(pydynaa.Entity):
     ready_evtype = pydynaa.EventType("DELIVERY_READY", "Qubit ready for delivery.")
@@ -139,6 +146,7 @@ class Alice(pydynaa.Entity):
 
 class Bob(pydynaa.Entity):
     _decoding_evtype = pydynaa.EventType("DECODING", "Decoding the payload from the qubit.")
+    decoded_evtype = pydynaa.EventType("DECODED", "Payload decoded from the qubit.")
   
     def __init__(self, delay):
         """
@@ -196,12 +204,21 @@ class Bob(pydynaa.Entity):
 
         self.payloads.append(payload)
 
+        self.mark_ready()
+
+    def mark_ready(self):
+        """Generate immediately a DECODED event to indicate that Bob is ready to
+        process another qubit"""
+
+        self._schedule_now(Bob.decoded_evtype)
+
 # configuration
 seed = 42
 logging.basicConfig(level=logging.INFO)
 
 # list of payloads expected
-expected_payloads = list(range(4))
+rng = np.random.default_rng(seed=seed)
+expected_payloads = list(rng.integers(low=0, high=4, size=10))
 
 # initialize
 ns.set_random_state(seed=seed)
@@ -217,7 +234,7 @@ charlie = Charlie(period=50, delay=10)
 charlie.wait_for_alice(alice)
 alice.wait_for_charlie(charlie)
 bob.wait_for_qubits(alice, charlie)
-charlie.start()
+charlie.start(bob)
 
 # run simulation
 stats = ns.sim_run()
@@ -237,4 +254,5 @@ for i, a, b in zip(range(N), expected_payloads, bob.payloads):
     logging.info(f'payload#{i}: {a} {b}')
     if a == b:
         sum += 1
-print(f'successful decoding rate {sum/N} ({N} payloads)')
+print(f'successful decoding rate {sum/N} ({N} payloads), '
+      f'duration {ns.sim_time():.1f}')
