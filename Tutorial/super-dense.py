@@ -40,17 +40,34 @@ class Charlie(pydynaa.Entity):
             exponential r.v.
         """
 
-        # Initialise Charlie by entangling qubits after every generation event
         self.period = period
         self.delay = delay
         self.entangled_qubits = None
+        self.terminating = False
         self._generate_handler = pydynaa.EventHandler(self._entangle_qubits)
         self._wait(self._generate_handler, entity=self,
                    event_type=Charlie._generate_evtype)
 
+    def wait_for_alice(self, alice):
+        """Wait for Alice to send an terminating event"""
+
+        self._terminating_handler = pydynaa.EventHandler(self._handle_terminating)
+        self._wait(self._terminating_handler, entity=alice,
+                   event_type=Alice.terminating_evtype)
+
+    def _handle_terminating(self, event):
+        """Handle terminating event from Alice"""
+
+        logging.info(f'{ns.sim_time():.1f} Charlie received termination event')
+        self.terminating = True
+
     def _entangle_qubits(self, event):
-        # Callback function that entangles qubits and schedules an
-        # entanglement ready event
+        """Entangle a Bell pair and schedule both the generation of an
+        even towards Alice and Bob, and the generation of a fresh Bell pair"""
+
+        if self.terminating:
+            return
+
         self.entangled_qubits = make_bell_pair()
         rand_delay = np.random.exponential(self.delay)
         logging.info(f'{ns.sim_time():.1f} Charlie entangled qubits started, '
@@ -65,6 +82,7 @@ class Charlie(pydynaa.Entity):
 class Alice(pydynaa.Entity):
     ready_evtype = pydynaa.EventType("DELIVERY_READY", "Qubit ready for delivery.")
     _encode_evtype = pydynaa.EventType("ENCODE", "Encode the payload in the qubit.")
+    terminating_evtype = pydynaa.EventType("TERMINATING", "All payloads sent.")
 
     def __init__(self, delay, payloads):
         """
@@ -85,13 +103,14 @@ class Alice(pydynaa.Entity):
                    event_type=Alice._encode_evtype)
 
     def wait_for_charlie(self, charlie):
-        # Setup Alice to wait for an entanglement qubit from Charlie
+        """Wait for Charlie to send an entangled qubit"""
+
         self._qubit_handler = pydynaa.EventHandler(self._handle_qubit)
         self._wait(self._qubit_handler, entity=charlie,
                    event_type=Charlie.ready_evtype)
 
     def _handle_qubit(self, event):
-        """Handle arrival of entangled qubit"""
+        """Handle arrival of the entangled qubit from Charlie"""
 
         self.qubit = event.source.entangled_qubits[0]
 
@@ -103,7 +122,13 @@ class Alice(pydynaa.Entity):
     def _handle_encode(self, event):
         """Handle the end of the operations on the qubit"""
 
-        payload = 3 # XXX
+        if not self.payloads:
+            logging.info(f'{ns.sim_time():.1f} Alice sent all payloads, terminating')
+            self._schedule_now(Alice.terminating_evtype)
+            return
+
+        payload = self.payloads.pop(0)
+        assert 0 <= payload <= 3
         if payload & 2:
             ns.qubits.operate(self.qubit, ns.X)
         if payload & 1:
@@ -127,6 +152,7 @@ class Bob(pydynaa.Entity):
         self.delay = delay
         self.q0 = None
         self.q1 = None
+        self.payloads = []
 
         self._decoding_handler = pydynaa.EventHandler(self._handle_decoding)
         self._wait(self._decoding_handler, entity=self,
@@ -168,10 +194,14 @@ class Bob(pydynaa.Entity):
         logging.info(f'{ns.sim_time():.1f} Bob decoded payload as {payload} '
                      f'(with probability {prob0:.2f} {prob1:.2f})')
 
+        self.payloads.append(payload)
+
 # configuration
 seed = 42
-duration = 100000
 logging.basicConfig(level=logging.INFO)
+
+# list of payloads expected
+expected_payloads = list(range(4))
 
 # initialize
 ns.set_random_state(seed=seed)
@@ -179,18 +209,32 @@ np.random.seed(seed)
 ns.sim_reset()
 
 # create simulation actors
-expected_payloads = range(4)
-alice = Alice(delay=20, payloads=expected_payloads)
+alice = Alice(delay=20, payloads=expected_payloads.copy())
 bob = Bob(delay=30)
-charlie = Charlie(period=50000, delay=10)
+charlie = Charlie(period=50, delay=10)
 
-# start the actors
-charlie.start()
+# connect the actors and trigger the start of the events
+charlie.wait_for_alice(alice)
 alice.wait_for_charlie(charlie)
 bob.wait_for_qubits(alice, charlie)
+charlie.start()
 
 # run simulation
-stats = ns.sim_run(end_time=duration)
+stats = ns.sim_run()
 
 # print statistics
 print(stats)
+
+# check results
+if len(expected_payloads) != len(bob.payloads):
+    print(f'Something went horribly wrong with payloads: '
+          f'sent {len(expected_payloads)} vs. '
+          f'received {len(bob.payloads)}')
+
+N = len(expected_payloads)
+sum = 0
+for i, a, b in zip(range(N), expected_payloads, bob.payloads):
+    logging.info(f'payload#{i}: {a} {b}')
+    if a == b:
+        sum += 1
+print(f'successful decoding rate {sum/N} ({N} payloads)')
