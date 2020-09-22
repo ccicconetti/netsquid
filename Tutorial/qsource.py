@@ -31,8 +31,9 @@ class ReceivingNode(pydynaa.Entity):
         self.name = f'RingNode#{self.counter}'
         ReceivingNode.counter += 1
 
+        noise_model = DepolarNoiseModel(depolar_rate=0.1, time_independent=True)
         # noise_model = DepolarNoiseModel(depolar_rate=self.depolar_rate)
-        noise_model = DephaseNoiseModel(dephase_rate=self.dephase_rate)
+        # noise_model = DephaseNoiseModel(dephase_rate=self.dephase_rate)
         self.qmemory = QuantumMemory("NodeMemory", num_positions=1,
                                      memory_noise_models=[noise_model])
         self._wait(pydynaa.EventHandler(self._handle_input_qubit),
@@ -42,7 +43,8 @@ class ReceivingNode(pydynaa.Entity):
 
     def _handle_input_qubit(self, event):
         if self.name == 'RingNode#0':
-            [m], [prob] = self.qmemory.measure(positions=[0], observable=ns.Z)
+            [m], [prob] = self.qmemory.measure(
+                positions=[0], observable=ns.Z, discard=True)
             labels_z = ("|0>", "|1>")
             print(f"{ns.sim_time():.1f}: {self.name} qubit measured "
                   f"{labels_z[m]} with probability {prob:.2f}")
