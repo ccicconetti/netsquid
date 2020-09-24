@@ -24,7 +24,7 @@ measurement, then sends a new qubit.
 
 This is a modification of the "The ping pong example using protocols" example
 from the NetSquid documentation:
-https://docs.netsquid.org/latest-release/tutorial.components.html
+https://docs.netsquid.org/latest-release/tutorial.protocols.html
 """
 
 import random
@@ -63,22 +63,34 @@ class OriginNodeProtocol(NodeProtocol):
 class OtherNodeProtocol(NodeProtocol):
     flip_probability = 0.2
 
-    def __init__(self, node, in_port_name, out_port_name):
+    def __init__(self, node, left_port_name, right_port_name):
         super().__init__(node)
-        self.in_port = self.node.ports[in_port_name]
-        self.out_port = self.node.ports[out_port_name]
+        self.left_port = self.node.ports[left_port_name]
+        self.right_port = self.node.ports[right_port_name]
 
     def run(self):
         print(f"{ns.sim_time():.1f}: OtherNodeProtocol started on {self.node.name}")
         while True:
-            yield self.await_port_input(self.in_port)
-            rx_items = self.in_port.rx_input().items
+            # wait until we receive a message on the left or the right port
+            evexpr_port_left = self.await_port_input(self.left_port)
+            evexpr_port_right = self.await_port_input(self.right_port)
+            expression = yield evexpr_port_left | evexpr_port_right
+
+            # let's see where we received the message from
+            if expression.first_term.value:
+                rx_items = self.left_port.rx_input().items
+            else:
+                rx_items = self.right_port.rx_input().items
             assert len(rx_items) == 1
             qubit = rx_items[0]
             if random.random() < self.flip_probability:
                 ns.qubits.operate(qubit, ns.X)
-            self.out_port.tx_output(qubit)  # send qubit to Ping
 
+            # send out the qubit on the opposite port from which we received it
+            if expression.first_term.value:
+                self.right_port.tx_output(qubit)
+            else:
+                self.left_port.tx_output(qubit)
 
 # Configuration
 sim_duration = 5000 # ns
@@ -112,11 +124,9 @@ protocols = []
 # In the origin node port_to_left_channel is unused
 protocols.append(OriginNodeProtocol(nodes[0]))
 
-# In all the middle nodes we create two instances of the protocol: one for
-# left-to-right and another for right-to-left transers
+# In all the middle nodes we create an instance of the protocol that transfers
+# the qubit to the opposite port from which it receives it
 for i in range(1, num_nodes-1, 1):
-    protocols.append(OtherNodeProtocol(
-        nodes[i], "port_to_right_channel", "port_to_left_channel"))
     protocols.append(OtherNodeProtocol(
         nodes[i], "port_to_left_channel", "port_to_right_channel"))
 
