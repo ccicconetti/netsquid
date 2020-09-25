@@ -9,6 +9,8 @@ https://docs.netsquid.org/latest-release/tutorial.quantumprocessor.html
 |             |       |               |       |              |
 +-------------+       +---------------+       +--------------+
 
+DC = DirectConnection (used only in left-to-right direction)
+
 Roles of nodes:
 
 - create_node: create two qubits |0> periodically and send them to entangle_node
