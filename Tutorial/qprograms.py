@@ -28,6 +28,20 @@ The are three possible scenarios simulated, which only differ on entangle_node:
   takes some time to transfer the qubits from channel to memory
 
 - qpu: entangle_node executes the entanglement operations as a quantum program
+  on a noisy quantum processor, with depolarizing and dephasing memory; also,
+  the instructions are modeled with > 0 delay
+
+Output metrics:
+
+- fidelity, comparing the measured quantum state w.r.t. ideal b_00
+
+- delay, defined as the time between when the qubits are created and when
+  their fidelity is measured; this includes: the fibre propagation delay, the
+  memory transfer delay (with qmemory and qpu), and the processing delay
+  (with qpu only)
+
+- the number of qubits lost, due to channel propagation; such qubits do not
+  reach the final destination, hence they are not accounted in the other metrics
 """
 
 import sys
