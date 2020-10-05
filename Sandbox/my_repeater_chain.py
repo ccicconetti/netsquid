@@ -4,7 +4,7 @@ In this example we show how a simple quantum repeater chain network can be setup
 The module file used in this example can be located as follows:
 
 >>> import netsquid as ns
->>> print("This example module is located at: {}".format(
+>>> logging.debug("This example module is located at: {}".format(
 ...       ns.examples.repeater_chain.__file__))
 This example module is located at: .../netsquid/examples/repeater_chain.py
 
@@ -136,9 +136,11 @@ As we see in the figure below, the error-bars now become negligible:
     :align: center
 
 """
+import logging
 import pandas
 import pydynaa
 import numpy as np
+import random
 
 import netsquid as ns
 from netsquid.qubits import ketstates as ks
@@ -181,27 +183,47 @@ class SwapProtocol(NodeProtocol):
     """
     _bsm_op_indices = [(0, 0), (0, 1), (1, 0), (1, 1)]
 
-    def __init__(self, node, name):
+    def __init__(self, node, name, oracle, pfail):
         super().__init__(node, name)
         self._qmem_input_port_l = self.node.qmemory.ports["qin1"]
         self._qmem_input_port_r = self.node.qmemory.ports["qin0"]
+        self.pfail = pfail
+        self.oracle = oracle
         self._program = QuantumProgram(num_qubits=2)
         q1, q2 = self._program.get_qubit_indices(num_qubits=2)
         self._program.apply(INSTR_MEASURE_BELL, [q1, q2], output_key="m", inplace=False)
 
     def run(self):
         while True:
+            # Wait for the qubits to arrive
             yield (self.await_port_input(self._qmem_input_port_l) &
                    self.await_port_input(self._qmem_input_port_r))
+
+            logging.debug(f"{ns.sim_time():.1f}: {self.node.name} all qubits received")
+            # Randomly drop incoming qubits and notify the oracle about this
+            link_states = dict()
+            for port in ["qin0", "qin1"]:
+                link_states[port] = random.random() >= self.pfail
+            self.oracle.add_link_states(self.node, link_states)
+            
+            # Wait for the oracle to take its decisions
+            yield self.await_signal(self.oracle, Signals.SUCCESS)
+
             # Perform Bell measurement
-            print(f"{ns.sim_time():.1f}: {self.node.name} ready to swap")
-            self.node.qmemory.execute_program(self._program, qubit_mapping=[1, 0])
-            yield self.await_program(self.node.qmemory)
-            m, = self._program.output["m"]
-            m1, m2 = self._bsm_op_indices[m]
-            # Send result to right node on end
-            print(f"{ns.sim_time():.1f}: {self.node.name} sending corrections out")
-            self.node.ports["ccon_R"].tx_output(Message([m1, m2]))
+            swap_possible = True
+            for v in link_states.values():
+                swap_possible &= v
+            if swap_possible:
+                logging.debug(f"{ns.sim_time():.1f}: {self.node.name} ready to swap")
+                self.node.qmemory.execute_program(self._program, qubit_mapping=[1, 0])
+                yield self.await_program(self.node.qmemory)
+                m, = self._program.output["m"]
+                m1, m2 = self._bsm_op_indices[m]
+                # Send result to right node on end
+                logging.debug(f"{ns.sim_time():.1f}: {self.node.name} sending corrections out")
+                self.node.ports["ccon_R"].tx_output(Message([m1, m2], path=0, timeslot=self.oracle.timeslot))
+            else:
+                logging.debug(f"{ns.sim_time():.1f}: {self.node.name} cannot swap")
 
 
 class SwapCorrectProgram(QuantumProgram):
@@ -222,23 +244,31 @@ class SwapCorrectProgram(QuantumProgram):
 
 
 class CorrectProtocol(NodeProtocol):
+    class PathInfo:
+        def __init__(self):
+            self.x_corr = 0
+            self.z_corr = 0
+            self.counter = 0
+
+        def incr(self, x_corr, z_corr):
+            self.counter += 1
+            self.x_corr += x_corr
+            self.z_corr += z_corr
+
     """Perform corrections for a swap on an end-node.
 
     Parameters
     ----------
     node : :class:`~netsquid.nodes.node.Node` or None, optional
         Node this protocol runs on.
-    num_nodes : int
-        Number of nodes in the repeater chain network.
 
     """
-    def __init__(self, node, num_nodes):
+    def __init__(self, node, oracle):
         super().__init__(node, "CorrectProtocol")
-        self.num_nodes = num_nodes
-        self._x_corr = 0
-        self._z_corr = 0
+        self.oracle = oracle
         self._program = SwapCorrectProgram()
-        self._counter = 0
+        self.rx_messages = dict()
+        self.timeslot = 0
 
     def run(self):
         while True:
@@ -246,21 +276,126 @@ class CorrectProtocol(NodeProtocol):
             message = self.node.ports["ccon_L"].rx_input()
             if message is None or len(message.items) != 2:
                 continue
+
+            # Retrieve the message's metadata set by the transmitter
+            timeslot = message.meta['timeslot']
+            path = message.meta['path']
+            logging.debug(f"{ns.sim_time():.1f}: {self.node.name} received corrections for timeslot {timeslot} path {path}")
+
+            # If we get timeslot greater than what we have, this means that
+            # the last one is expired, so we can clean all pending data
+            if timeslot > self.timeslot:
+                self.timeslot = timeslot
+                self.rx_messages.clear()
+
+            # Count how many messages have been received and check if they
+            # are enough for the given path
+            if path not in self.rx_messages:
+                self.rx_messages[path] = CorrectProtocol.PathInfo()
+
+            path_info = self.rx_messages[path]
+            path_length = self.oracle.path_length(path)
+
             m0, m1 = message.items
-            self._x_corr += m1
-            self._z_corr += m0
-            self._counter += 1
-            print(f"{ns.sim_time():.1f}: {self.node.name} got {self._counter} correction ({m0}, {m1}) out of {self.num_nodes-2} needed")
-            if self._counter == self.num_nodes - 2:
-                if self._x_corr or self._z_corr:
-                    self._program.set_corrections(self._x_corr, self._z_corr)
+            path_info.incr(m1, m0)
+            logging.debug(f"{ns.sim_time():.1f}: {self.node.name} got {path_info.counter} correction ({m0}, {m1}) out of {path_length} needed")
+            if path_info.counter == path_length:
+                if path_info.x_corr or path_info.z_corr:
+                    self._program.set_corrections(path_info.x_corr, path_info.z_corr)
                     self.node.qmemory.execute_program(self._program, qubit_mapping=[1])
                     yield self.await_program(self.node.qmemory)
+                self.oracle.success()
                 self.send_signal(Signals.SUCCESS)
-                print(f"{ns.sim_time():.1f}: {self.node.name} corrections applied, notifying SUCCESS")
-                self._x_corr = 0
-                self._z_corr = 0
-                self._counter = 0
+                logging.debug(f"{ns.sim_time():.1f}: {self.node.name} corrections applied, notifying SUCCESS")
+
+class FibreDepolarizeModel(QuantumErrorModel):
+    """Custom non-physical error model used to show the effectiveness
+    of repeater chains.
+
+    The default values are chosen to make a nice figure,
+    and don't represent any physical system.
+
+    Parameters
+    ----------
+    p_depol_init : float, optional
+        Probability of depolarization on entering a fibre.
+        Must be between 0 and 1. Default 0.009
+    p_depol_length : float, optional
+        Probability of depolarization per km of fibre.
+        Must be between 0 and 1. Default 0.025
+
+    """
+    def __init__(self, p_depol_init=0.009, p_depol_length=0.025):
+        super().__init__()
+        self.properties['p_depol_init'] = p_depol_init
+        self.properties['p_depol_length'] = p_depol_length
+        self.required_properties = ['length']
+
+    def error_operation(self, qubits, delta_time=0, **kwargs):
+        """Uses the length property to calculate a depolarization probability,
+        and applies it to the qubits.
+
+        Parameters
+        ----------
+        qubits : tuple of :obj:`~netsquid.qubits.qubit.Qubit`
+            Qubits to apply noise to.
+        delta_time : float, optional
+            Time qubits have spent on a component [ns]. Not used.
+
+        """
+        for qubit in qubits:
+            prob = 1 - (1 - self.properties['p_depol_init']) * np.power(
+                10, - kwargs['length']**2 * self.properties['p_depol_length'] / 10)
+            ns.qubits.depolarize(qubit, prob=prob)
+
+class Oracle(Protocol):
+    def __init__(self, nodes):
+        super().__init__(name="Oracle")
+
+        self.node_names = [x.name for x in nodes]
+        self.pending_nodes = set(self.node_names)
+        self.src_node = None
+        self.dst_node = None
+        self.timeslot = 0
+        self.num_attempts = 0
+        self.num_successful = 0
+
+    def set_src_node(self, node):
+        logging.debug(f"{ns.sim_time():.1f}: {self.name} {node.name} is the SRC node")
+        self.src_node = node.name
+
+    def set_dst_node(self, node):
+        logging.debug(f"{ns.sim_time():.1f}: {self.name} {node.name} is the DST node")
+        self.dst_node = node.name
+
+    def add_link_states(self, node, link_states):
+        assert node.name in self.pending_nodes
+        assert self.src_node is not None
+        assert self.dst_node is not None
+
+        logging.debug((f"{ns.sim_time():.1f}: {self.name} received "
+              f"from node {node.name} link states {link_states}"))
+
+        self.pending_nodes.remove(node.name)  
+
+        if self.pending_nodes == set([self.src_node, self.dst_node]):
+            # Send signal to all waiting nodes that they should move on
+            self.send_signal(Signals.SUCCESS)
+            self.num_attempts += 1
+
+            # This is a new timeslot
+            self.timeslot += 1
+
+            # Wait for all nodes again
+            self.pending_nodes = set(self.node_names)
+
+    def success(self):
+        self.num_successful += 1
+
+    def path_length(self, path):
+        if path != 0:
+            raise Exception(f"Unknown path {path}")
+        return len(self.node_names) - 2
 
 class PassThroughProtocol(Protocol):
     def __init__(self, name, in_port, out_port):
@@ -273,7 +408,7 @@ class PassThroughProtocol(Protocol):
             yield self.await_port_input(self.in_port)
             message = self.in_port.rx_input()
             if message is not None:
-                print(f"{ns.sim_time():.1f}: message received by {self.name}: {message}")
+                logging.debug(f"{ns.sim_time():.1f}: message received by {self.name}: {message}")
             self.out_port.tx_output(message)
 
 class MyEntanglingConnection(Connection):
@@ -391,6 +526,7 @@ def setup_network(num_nodes, node_distance, source_frequency):
     if num_nodes < 3:
         raise ValueError(f"Can't create repeater chain with {num_nodes} nodes.")
     network = Network("Repeater_chain_network")
+
     # Create nodes with quantum processors
     nodes = []
     for i in range(num_nodes):
@@ -424,10 +560,15 @@ def setup_network(num_nodes, node_distance, source_frequency):
         if "ccon_L" in node.ports:
             node.ports["ccon_L"].bind_input_handler(
                 lambda message, _node=node: _node.ports["ccon_R"].tx_output(message))
-    return network
 
+    # Create oracle
+    oracle = Oracle(nodes)
+    oracle.set_src_node(nodes[0])
+    oracle.set_dst_node(nodes[-1])
 
-def setup_repeater_protocol(network):
+    return (network, oracle)
+
+def setup_repeater_protocol(network, oracle, pfail):
     """Setup repeater protocol on repeater chain network.
 
     Parameters
@@ -446,11 +587,13 @@ def setup_repeater_protocol(network):
     # since the subprotocols would otherwise overwrite each other in the main protocol.
     nodes = [network.nodes[name] for name in sorted(network.nodes.keys())]
     for node in nodes[1:-1]:
-        subprotocol = SwapProtocol(node=node, name=f"Swap_{node.name}")
+        subprotocol = SwapProtocol(node=node, name=f"Swap_{node.name}", oracle=oracle, pfail=pfail)
         protocol.add_subprotocol(subprotocol)
     # Add CorrectProtocol to Bob
-    subprotocol = CorrectProtocol(nodes[-1], len(nodes))
+    subprotocol = CorrectProtocol(nodes[-1], oracle=oracle)
     protocol.add_subprotocol(subprotocol)
+    # Add oracle
+    protocol.add_subprotocol(oracle)
     return protocol
 
 
@@ -486,8 +629,7 @@ def setup_datacollector(network, protocol):
                                           event_type=Signals.SUCCESS.value))
     return dc
 
-
-def run_simulation(num_nodes=4, node_distance=20, num_iters=100):
+def run_simulation(num_nodes=4, node_distance=20, num_iters=100, pfail=0, seed=42):
     """Run the simulation experiment and return the collected data.
 
     Parameters
@@ -505,17 +647,21 @@ def run_simulation(num_nodes=4, node_distance=20, num_iters=100):
         Dataframe with recorded fidelity data.
 
     """
+    logging.info(f"starting simulation: num_nodes = {num_nodes}, distance = {node_distance} km, messages = {num_iters}, prob. entang. failure = {pfail}")
     ns.sim_reset()
+    ns.set_random_state(seed=seed)
+    random.seed(seed)
     est_runtime = (0.5 + num_nodes - 1) * node_distance * 5e3
-    print(f"estimated end-to-end delay = {est_runtime} ns")
-    network = setup_network(num_nodes, node_distance=node_distance,
-                            source_frequency=1e9 / est_runtime)
-    protocol = setup_repeater_protocol(network)
+    logging.debug(f"estimated end-to-end delay = {est_runtime} ns")
+    (network, oracle) = setup_network(num_nodes, node_distance=node_distance,
+                                      source_frequency=1e9 / est_runtime)
+    protocol = setup_repeater_protocol(network, oracle, pfail)
     dc = setup_datacollector(network, protocol)
     protocol.start()
     ns.sim_run(est_runtime * num_iters)
-    return dc.dataframe
-
+    return (dc.dataframe,
+            protocol.subprotocols['Oracle'].num_attempts,
+            protocol.subprotocols['Oracle'].num_successful)
 
 def create_plot(num_iters=2000):
     """Run the simulation for multiple nodes and distances and show them in a figure.
@@ -529,72 +675,70 @@ def create_plot(num_iters=2000):
     """
     from matplotlib import pyplot as plt
     _, ax = plt.subplots()
+    data_rates = []
     for distance in [10, 30, 50]:
-        data = pandas.DataFrame()
-        for num_node in range(3, 20):
-            data[num_node] = run_simulation(num_nodes=num_node,
-                                            node_distance=distance / num_node,
-                                            num_iters=num_iters)['fidelity']
-        # For errorbars we use the standard error of the mean (sem)
-        data = data.agg(['mean', 'sem']).T.rename(columns={'mean': 'fidelity'})
-        data.plot(y='fidelity', yerr='sem', label=f"{distance} km", ax=ax)
+        for pfail in [0, 0.1]:
+            data = pandas.DataFrame()
+            # for num_node in range(8, 9):
+            for num_node in [3, 8]:
+                res = run_simulation(num_nodes=num_node,
+                                     node_distance=distance / num_node,
+                                     num_iters=num_iters,
+                                     pfail=pfail)
+                assert len(res) == 3
+                data[num_node] = res[0]['fidelity']
+                assert res[1] > 0
+                data_rates.append({
+                    'distance': distance,
+                    'pfail': pfail,
+                    'num_node': num_node,
+                    'attempts': res[1],
+                    'successful': res[2],
+                    'success_prob': res[2]/res[1]
+                    })
+
+            # For errorbars we use the standard error of the mean (sem)
+            data = data.agg(['mean', 'sem']).T.rename(columns={'mean': 'fidelity'})
+            data.plot(y='fidelity', yerr='sem', label=f"{distance} km, p = {pfail}", ax=ax)
     plt.xlabel("number of nodes")
     plt.ylabel("fidelity")
-    plt.title("Repeater chain with different total lengths")
-    plt.show()
- 
+    plt.title("Repeater chain with different total lengths\nand entanglement failure probabilities")
+    plt.show(block=False)
 
-class FibreDepolarizeModel(QuantumErrorModel):
-    """Custom non-physical error model used to show the effectiveness
-    of repeater chains.
+    # Plot the probabilities
+    df_rates = pandas.DataFrame(data_rates)
 
-    The default values are chosen to make a nice figure,
-    and don't represent any physical system.
+    metrics = ['successful', 'success_prob']
 
-    Parameters
-    ----------
-    p_depol_init : float, optional
-        Probability of depolarization on entering a fibre.
-        Must be between 0 and 1. Default 0.009
-    p_depol_length : float, optional
-        Probability of depolarization per km of fibre.
-        Must be between 0 and 1. Default 0.025
+    for metric in metrics:
+        _, ax = plt.subplots()
+        
+        for distance in set(df_rates['distance']):
+            for pfail in set(df_rates['pfail']):
+                df_rates.loc[(df_rates['distance'] == distance) & (df_rates['pfail'] == pfail)].\
+                    plot(x='num_node', y=metric, label=f"{distance} km, p = {pfail}", ax=ax)
 
-    """
-    def __init__(self, p_depol_init=0.009, p_depol_length=0.025):
-        super().__init__()
-        self.properties['p_depol_init'] = p_depol_init
-        self.properties['p_depol_length'] = p_depol_length
-        self.required_properties = ['length']
-
-    def error_operation(self, qubits, delta_time=0, **kwargs):
-        """Uses the length property to calculate a depolarization probability,
-        and applies it to the qubits.
-
-        Parameters
-        ----------
-        qubits : tuple of :obj:`~netsquid.qubits.qubit.Qubit`
-            Qubits to apply noise to.
-        delta_time : float, optional
-            Time qubits have spent on a component [ns]. Not used.
-
-        """
-        for qubit in qubits:
-            prob = 1 - (1 - self.properties['p_depol_init']) * np.power(
-                10, - kwargs['length']**2 * self.properties['p_depol_length'] / 10)
-            ns.qubits.depolarize(qubit, prob=prob)
-
+        plt.xlabel("number of nodes")
+        plt.ylabel(metric)
+        plt.title("Repeater chain with different total lengths\nand entanglement failure probabilities")
+        plt.show(block=(metric == metrics[-1]))
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     ns.set_qstate_formalism(ns.QFormalism.DM)
 
-    # create_plot(20)
+    num_timeslots = 100
 
-    distance = 10 # km
-    num_iters = 3
+    create_plot(num_iters=num_timeslots)
 
-    df = run_simulation(num_nodes=4,
-                        node_distance=distance,
-                        num_iters=num_iters)
+    # distance = 10 # km
+    # seed = 1
+    # pfail = 0.25
 
-    print(df)
+    # df = run_simulation(num_nodes=9,
+    #                     node_distance=distance,
+    #                     num_iters=num_timeslots,
+    #                     pfail=pfail,
+    #                     seed=seed)
+
+    # logging.info(df)
