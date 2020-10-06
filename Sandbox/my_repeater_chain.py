@@ -1,140 +1,18 @@
 """
+This is a slightly modified version of the NetSquid example repeater_chain.py:
 
-In this example we show how a simple quantum repeater chain network can be setup and simulated in NetSquid.
-The module file used in this example can be located as follows:
+https://docs.netsquid.org/latest-release/api_examples/netsquid.examples.repeater_chain.html
 
->>> import netsquid as ns
->>> logging.debug("This example module is located at: {}".format(
-...       ns.examples.repeater_chain.__file__))
-This example module is located at: .../netsquid/examples/repeater_chain.py
+In addition to connecting two nodes through a chain of quantum repeaters, we
+add the possibility that entanglement fails with some independent probability
+at any end of an EntanglingConnection, which has been modified as a sandbox
+experiment to also log the time when a qubit is emitted.
 
-In the `repeater example <netsquid.examples.repeater.html>`_ we simulated a single quantum repeater on a network topology consisting of two nodes
-connected via a single repeater node (see for instance `[Briegel et al.] <https://arxiv.org/abs/quant-ph/9803056>`_ for more background).
-To simulate a repeater chain we will extend this network topology to be a line of *N* nodes as shown below:
-
-.. aafig::
-    :textual:
-    :proportional:
-
-    +-----------+   +----------+         +------------+   +----------+
-    |           |   |          |         |            |   |          |
-    | "Node 0"  O---O "Node 1" O-- ooo --O "Node N-1" O---O "Node N" |
-    | "(Alice)" |   |          |         |            |   | "(Bob)"  |
-    |           |   |          |         |            |   |          |
-    +-----------+   +----------+         +------------+   +----------+
-
-We will refer to the outer nodes as *end nodes*, and sometimes also as Alice and Bob for convenience,
-and the in between nodes as the *repeater nodes*.
-The lines between the nodes represent both an entangling connection and a classical connection,
-as introduced in the `teleportation example <netsquid.examples.teleportation.html>`_.
-The repeaters will use a so-called `entanglement swapping scheme <https://en.wikipedia.org/wiki/Quantum_teleportation>`_ to entangle the end nodes,
-which consists of the following steps:
-
-1. generating entanglement with both of its neighbours,
-2. measuring its two locally stored qubits in the Bell basis,
-3. sending its own measurement outcomes to its right neighbour, and also forwarding on outcomes received from its left neighbour in this way.
-
-Let us create the repeater chain network.
-We need to create the *N* nodes, each with a quantum processor, and every pair of nodes
-in the chain must be linked using an entangling connection and a classical connection.
-In each entangling connection an entangled qubit generating source is available.
-A schematic illustration of a repeater and its connections is shown below:
-
-.. aafig::
-    :textual:
-
-                     +------------------------------------+
-                     |          "Repeater"                |
-    -------------+   |       +--------------------+       |   +---
-    "Entangling" |   |   qin1| "QuantumProcessor" | qin0  |   |
-    "Connection" O---O--->---O                    O---<---O---O
-                 |   |       |                    |       |   |
-    -------------+   |       +--------------------+       |   +---
-                     |                                    |
-    -------------+   |                                    |   +---
-    "Classical"  |   |  "Forward to R"                    |   |
-    "Connection" O---O->-# - - - - - - - - - - - - - - - -O---O
-                 |   |"ccon_L"                    "ccon_R"|   |
-    -------------+   +------------------------------------+   +---
-
-We will re-use the Connection subclasses
-:py:class:`~netsquid.examples.teleportation.EntanglingConnection` and :py:class:`~netsquid.examples.teleportation.ClassicalConnection`
-created in the `teleportation tutorial <tutorial.simulation.html>`_ and
-use the following function to create quantum processors for each node:
-
-.. literalinclude:: ../../netsquid/examples/repeater_chain.py
-    :pyobject: create_qprocessor
-
-We create a network component and add the nodes and connections to it.
-This way we can easily keep track of all our components in the network, which will be useful when collecting data later.
-
-.. literalinclude:: ../../netsquid/examples/repeater_chain.py
-    :pyobject: setup_network
-
-We have used a custom noise model in this example, which helps to exaggerate the effectiveness of the repeater chain.
-
-.. literalinclude:: ../../netsquid/examples/repeater_chain.py
-    :pyobject: FibreDepolarizeModel
-
-The next step is to setup the protocols.
-To easily manage all the protocols, we add them as subprotocols of one main protocol.
-In this way, we can start them at the same time, and the main protocol will stop when all subprotocols have finished.
-
-.. literalinclude:: ../../netsquid/examples/repeater_chain.py
-    :pyobject: setup_repeater_protocol
-
-The definition of the swapping subprotocol that will run on each repeater node:
-
-.. literalinclude:: ../../netsquid/examples/repeater_chain.py
-    :pyobject: SwapProtocol
-
-The definition of the correction subprotocol responsible for applying the classical corrections at Bob:
-
-.. literalinclude:: ../../netsquid/examples/repeater_chain.py
-    :pyobject: CorrectProtocol
-
-Note that for the corrections we only need to apply each of the :math:`X` or :math:`Z` operators maximally once.
-This is due to the anti-commutativity and self-inverse of these Pauli matrices, i.e.
-:math:`ZX = -XZ` and :math:`XX=ZZ=I`, which allows us to cancel repeated occurrences up to a global phase (-1).
-The program that executes the correction on Bob's quantum processor is:
-
-.. literalinclude:: ../../netsquid/examples/repeater_chain.py
-    :pyobject: SwapCorrectProgram
-
-With our network and protocols ready, we can add a data collector to define when and which data we want to collect.
-We can wait for the signal sent by the *CorrectProtocol* when it finishes, and if it has, compute the fidelity of the
-qubits at Alice and Bob with respect to the expected Bell state.
-Using our network and main protocol we can easily find Alice and the CorrectionProtocol as subcomponents.
-
-.. literalinclude:: ../../netsquid/examples/repeater_chain.py
-    :pyobject: setup_datacollector
-
-We want to run the experiment for multiple numbers of nodes and distances.
-Let us first define a function to run a single simulation:
-
-.. literalinclude:: ../../netsquid/examples/repeater_chain.py
-    :pyobject: run_simulation
-
-Finally we will run multiple simulations and plot them in a figure.
-
-.. literalinclude:: ../../netsquid/examples/repeater_chain.py
-    :pyobject: create_plot
-
-Using the ket vector formalism produces the following figure:
-
-.. image:: ../_static/rep_chain_example_ket.png
-    :width: 600px
-    :align: center
-
-Because the quantum states don't have an opportunity to grow very large in our simulation,
-it is also possible for this simple example to improve on our results using the density matrix formalism.
-Instead of running the simulation for 2000 iterations, it is now sufficient to run it for only a few.
-As we see in the figure below, the error-bars now become negligible:
-
-.. image:: ../_static/rep_chain_example_dm.png
-    :width: 600px
-    :align: center
-
+There is also an Oracle that is used by the SwapProtocol to know if the swap
+(through a Bell measurement, like in the original example) is possible and by
+the CorrectProtocol to learn the number of messages via classical communication
+channel that are expected to apply corrections (or discard the qubit if the
+timeslot duration expires).
 """
 import logging
 import pandas
@@ -167,6 +45,8 @@ __all__ = [
     "setup_datacollector",
     "run_simulation",
     "create_plot",
+    "MyEntanglingConnection",
+    "Oracle"
 ]
 
 
