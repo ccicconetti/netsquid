@@ -647,7 +647,7 @@ def run_simulation(num_nodes=4, node_distance=20, num_iters=100, pfail=0, seed=4
         Dataframe with recorded fidelity data.
 
     """
-    logging.info(f"starting simulation: num_nodes = {num_nodes}, distance = {node_distance} km, messages = {num_iters}, prob. entang. failure = {pfail}")
+    logging.info(f"starting simulation #{seed}: num_nodes = {num_nodes}, distance = {node_distance} km, messages = {num_iters}, prob. entang. failure = {pfail}")
     ns.sim_reset()
     ns.set_random_state(seed=seed)
     random.seed(seed)
@@ -677,10 +677,10 @@ def create_plot(num_iters=2000):
     _, ax = plt.subplots()
     data_rates = []
     for distance in [10, 30, 50]:
-        for pfail in [0, 0.1]:
+        for pfail in [0, 0.1, 0.2]:
             data = pandas.DataFrame()
-            # for num_node in range(8, 9):
-            for num_node in [3, 8]:
+            for num_node in range(3, 8):
+            # for num_node in [3, 8]:
                 res = run_simulation(num_nodes=num_node,
                                      node_distance=distance / num_node,
                                      num_iters=num_iters,
@@ -727,18 +727,23 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     ns.set_qstate_formalism(ns.QFormalism.DM)
 
-    num_timeslots = 100
+    num_timeslots = 200
 
-    create_plot(num_iters=num_timeslots)
+    single_experiment = False
 
-    # distance = 10 # km
-    # seed = 1
-    # pfail = 0.25
+    if not single_experiment:
+        create_plot(num_iters=num_timeslots)
 
-    # df = run_simulation(num_nodes=9,
-    #                     node_distance=distance,
-    #                     num_iters=num_timeslots,
-    #                     pfail=pfail,
-    #                     seed=seed)
+    else:
+        distance = 6.25 # km
+        seed = 42
+        pfail = 0.2
+        num_nodes=8
 
-    # logging.info(df)
+        df = run_simulation(num_nodes=num_nodes,
+                            node_distance=distance,
+                            num_iters=num_timeslots,
+                            pfail=pfail,
+                            seed=seed)
+
+        logging.info(df)
