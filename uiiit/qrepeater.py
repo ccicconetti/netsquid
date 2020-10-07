@@ -5,6 +5,10 @@ from netsquid.components import QuantumProcessor, PhysicalInstruction
 from netsquid.components.models.qerrormodels import DepolarNoiseModel, DephaseNoiseModel
 from netsquid.components.instructions import INSTR_MEASURE_BELL, INSTR_X, INSTR_Z
 
+__all__ = [
+    "QRepeater"
+    ]
+
 class QRepeater:
     """Factory to create a quantum processor for a quantum repeater.
 
