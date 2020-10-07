@@ -1,6 +1,7 @@
 """This module specifies classes that help creation of quantum networks.
 """
 
+import logging
 import numpy as np
 
 from netsquid.nodes import Node, Network, Connection
@@ -66,6 +67,10 @@ class QNetworkUniform:
             lhs_node, rhs_node = nodes[u], nodes[v]
             lhs_id, rhs_id = topology.incoming_id(u, v), topology.incoming_id(v, u)
 
+            logging.info((f"creating quantum and classical connections between "
+                          f"{lhs_node.name} (port {lhs_id}) and "
+                          f"{rhs_node.name} (port {rhs_id})"))
+
             # Create a bidirectional quantum connection between the two nodes
             # that also emits periodically entangled qubits
             qconn = EntanglingConnection(
@@ -88,7 +93,7 @@ class QNetworkUniform:
 
             # Create a classical connection between the two nodes
             cconn = ClassicalConnection(name=f"cconn_{u}-{v}", length=self._node_distance)
-            port_lhs_name, port_rhs_name = network.add_connection(
+            network.add_connection(
                 lhs_node, rhs_node, connection=cconn, label="classical",
                 port_name_node1=f"ccon{lhs_id}", port_name_node2=f"ccon{rhs_id}")
 
