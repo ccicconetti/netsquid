@@ -5,7 +5,8 @@ import logging
 
 import netsquid as ns
 import netsquid.qubits.ketstates as ks
-from netsquid.nodes import Connection, Protocol
+from netsquid.nodes import Connection
+from netsquid.protocols.protocol import Protocol
 from netsquid.components import Clock, Component
 from netsquid.components.qsource import QSource, SourceStatus
 from netsquid.qubits.state_sampler import StateSampler

@@ -6,7 +6,7 @@ import numpy as np
 from netsquid.nodes import Node, Network, Connection
 from netsquid.examples.teleportation import ClassicalConnection
 
-from qconnection import ClassicalConnection, EntanglingConnection
+from uiiit.qconnection import ClassicalConnection, EntanglingConnection
 
 __all__ = [
     "QNetworkUniform"
@@ -29,14 +29,14 @@ class QNetworkUniform:
         self._source_frequency = source_frequency
         self._qerr_model = qerr_model
 
-    def make_network(self, name, qrepeater, topology):
+    def make_network(self, name, qrepeater_factory, topology):
         """Create a quantum network with the class-specified characteristics. 
 
         Parameters
         ----------
         name : str
             Name of the network.
-        qrepeater : :class:`~uiiit.topology.QRepeater`
+        qrepeater_factory : :class:`~uiiit.topology.QRepeater`
             Quantum repeater factory.
         topology : :class:`~uiiit.topology.Topology`
             Network topology.
@@ -57,13 +57,13 @@ class QNetworkUniform:
         for i in range(topology.num_nodes):
             nodes.append(Node(
                 f"Node_{i:0{num_zeros}d}",
-                qmemory=qrepeater.make_qprocessor(
+                qmemory=qrepeater_factory.make_qprocessor(
                     f"qproc_{i}", len(topology.neigh(i)))))
         network.add_nodes(nodes)
 
         # Create quantum and classical connections
         for [u, v] in topology.biedges():
-            lhs_node, rhs_node = nodes[u], nodes[v])
+            lhs_node, rhs_node = nodes[u], nodes[v]
             lhs_id, rhs_id = topology.incoming_id(u, v), topology.incoming_id(v, u)
 
             # Create a bidirectional quantum connection between the two nodes
@@ -91,3 +91,5 @@ class QNetworkUniform:
             port_lhs_name, port_rhs_name = network.add_connection(
                 lhs_node, rhs_node, connection=cconn, label="classical",
                 port_name_node1=f"ccon{lhs_id}", port_name_node2=f"ccon{rhs_id}")
+
+        return network
