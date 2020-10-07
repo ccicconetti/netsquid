@@ -3,6 +3,7 @@
 
 import logging
 import numpy as np
+import random
 
 from netsquid.nodes import Node, Network, Connection
 from netsquid.examples.teleportation import ClassicalConnection
@@ -20,13 +21,17 @@ class QNetworkUniform:
     ----------
     node_distance : float
         Distance between adjacent nodes [km].
+    node_distance_error : float
+        Add a random distance randomly drawn from -node_distance_error/2 and
+        node_distance_error/2 to the actual distance between any two nodes [km].
     source_frequency : float
         Frequency at which sources generate qubits [Hz].
     qerr_model: :class:`netsquid.components.models.qerrormodels.QuantumErrorModel`
         The quantum error model to use.
     """
-    def __init__(self, node_distance, source_frequency, qerr_model):
+    def __init__(self, node_distance, node_distance_error, source_frequency, qerr_model):
         self._node_distance = node_distance
+        self._node_distance_error = node_distance_error
         self._source_frequency = source_frequency
         self._qerr_model = qerr_model
 
@@ -75,7 +80,7 @@ class QNetworkUniform:
             # that also emits periodically entangled qubits
             qconn = EntanglingConnection(
                 name=f"qconn_{u}-{v}",
-                length=self._node_distance,
+                length=self._get_length(),
                 source_frequency=self._source_frequency)
 
             # Add quantum noise model
@@ -98,3 +103,8 @@ class QNetworkUniform:
                 port_name_node1=f"ccon{lhs_id}", port_name_node2=f"ccon{rhs_id}")
 
         return network
+
+    def _get_length(self):
+        return self._node_distance +\
+            random.uniform(-self._node_distance_error/2,
+                           self._node_distance_error/2)
