@@ -13,10 +13,14 @@ class Topology:
     Parameters
     ----------
     type : str
-        Type of the network to create, one of: grid.
+        Type of the network to create, one of: chain, grid, brite.
     size : int, optional
-        Depends on the network type. 
-        With grid, this is the number of nodes in any side.
+        The actual meaning depends on the network type: 
+        with grid, this is the number of nodes on any side of the square;
+        with chain, it's the size of the chain.
+        It is unused with other topology types.
+    in_file_name : str, optional
+        Name of the input file. Only used with a brite topology.
 
     Properties
     ----------
@@ -28,7 +32,7 @@ class Topology:
     ValueError
         If the type is not supported.
     """
-    def __init__(self, type, size=1):
+    def __init__(self, type, size=1, in_file_name=""):
         # The graph stored as a dictionary where:
         # key: node's name
         # value: all the nodes that have an edge with the node in the key as a set 
@@ -62,7 +66,31 @@ class Topology:
                 if u // size != (size - 1):
                     neighbours.append(u + size)
                 self._graph[u] = set(neighbours)
-   
+            
+        elif type == "brite":
+            print(in_file_name)
+            # Read from file
+            with open(in_file_name, 'r') as in_file:
+                edge_mode = False
+                for line in in_file:
+                    if 'Edges:' in line:
+                        edge_mode = True
+                        continue
+
+                    if not edge_mode:
+                        continue
+
+                    (_, u, v) = line.split(' ')[0:3]
+                    (u, v) = (int(u), int(v))
+                    if u not in self._graph:
+                        self._graph[u] = set()
+                    self._graph[u].add(v)
+                    if v not in self._graph:
+                        self._graph[v] = set()
+                    self._graph[v].add(u)
+
+                self.num_nodes = len(self._graph)
+
         else:
             raise ValueError(f'Invalid topology type: {type}')
 

@@ -3,9 +3,28 @@ __version__ = "0.1.0"
 __license__ = "MIT"
 
 import unittest
+import tempfile
 from topology import Topology
 
 class TestTopology(unittest.TestCase):
+    brite_topo = \
+b"""Topology: ( 20 Nodes, 37 Edges )
+Model ( 2 ): 20 1000 100 1 2 1 10 1024
+
+Nodes: (4)
+0 209.00 89.00 9 9 -1 RT_NODE
+1 689.00 291.00 3 3 -1 RT_NODE
+2 323.00 292.00 11 11 -1 RT_NODE
+3 614.00 744.00 3 3 -1 RT_NODE
+
+Edges: (5):
+0 0 1 520.77 1.74 10.00 -1 -1 E_RT U
+1 0 2 520.77 1.74 10.00 -1 -1 E_RT U
+2 1 2 520.77 1.74 10.00 -1 -1 E_RT U
+3 1 3 520.77 1.74 10.00 -1 -1 E_RT U
+4 2 3 520.77 1.74 10.00 -1 -1 E_RT U
+"""
+
     def test_invalid_type(self):
         with self.assertRaises(ValueError):
             Topology("unknown-topology")
@@ -71,6 +90,17 @@ class TestTopology(unittest.TestCase):
         (prev, dist) = net4.spt(15)
         self.assertEqual(6, dist[0])
         self.assertEqual(5, len(Topology.traversing(prev, 0, 15)))
+
+    def test_brite(self):
+        with tempfile.NamedTemporaryFile() as fp:
+            fp.write(self.brite_topo)
+            fp.flush()
+            net = Topology("brite", in_file_name=fp.name)
+            self.assertEqual(4, net.num_nodes)
+            self.assertEqual({1, 2}, net.neigh(0))
+            self.assertEqual({0, 2, 3}, net.neigh(1))
+            self.assertEqual({0, 1, 3}, net.neigh(2))
+            self.assertEqual({1, 2}, net.neigh(3))
 
     @unittest.skip
     def test_graphviz(self):
