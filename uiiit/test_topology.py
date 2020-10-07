@@ -125,7 +125,7 @@ Edges: (5):
             self.assertEqual({0, 1, 3}, net.neigh(2))
             self.assertEqual({1, 2}, net.neigh(3))
 
-    # @unittest.skip
+    @unittest.skip
     def test_graphviz(self):
         Topology("grid", size=4).save_dot("mygraph")
 
