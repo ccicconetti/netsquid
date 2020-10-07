@@ -71,7 +71,7 @@ Edges: (5):
 
         self.assertEqual(
             [[0, 1], [1, 2], [2, 3], [3, 4]],
-            net5.biedges())            
+            net5.biedges())
 
     def test_grid(self):
         with self.assertRaises(ValueError):
@@ -100,6 +100,19 @@ Edges: (5):
         (prev, dist) = net4.spt(15)
         self.assertEqual(6, dist[0])
         self.assertEqual(5, len(Topology.traversing(prev, 0, 15)))
+
+    def test_incoming_id(self):
+        net = Topology("grid", size=3)
+
+        self.assertEqual({1, 3, 5, 7}, net.neigh(4))
+        self.assertEqual(0, net.incoming_id(4, 1))
+        self.assertEqual(1, net.incoming_id(4, 3))
+        self.assertEqual(2, net.incoming_id(4, 5))
+        self.assertEqual(3, net.incoming_id(4, 7))
+
+        self.assertEqual({5, 7}, net.neigh(8))
+        self.assertEqual(0, net.incoming_id(8, 5))
+        self.assertEqual(1, net.incoming_id(8, 7))
 
     def test_brite(self):
         with tempfile.NamedTemporaryFile() as fp:

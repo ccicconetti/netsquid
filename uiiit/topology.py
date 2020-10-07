@@ -39,6 +39,10 @@ class Topology:
         # Lazy-initialized list of pairs of nodes with a bi-directional connection
         self._biedges = None
 
+        # Lazy-initialized data structure that assigns a numeric 0-based
+        # identifier, unique for each node, to every incoming edge
+        self._incoming_id = None
+
         # The graph stored as a dictionary where:
         # key: node's name
         # value: all the nodes that have an edge with the node in the key as a set 
@@ -132,7 +136,40 @@ class Topology:
                     self._biedges.append(pair)
 
         self._biedges.sort()
-        return self._biedges 
+        return self._biedges
+
+    def incoming_id(self, target_node, other_node):
+        """Return the identifier associated to an incoming edge.
+
+        Parameters
+        ----------
+        target_node : int
+            Node for which the edge is incoming.
+        other_node : int
+            Neighbor of target_node for which we return the edge identifier
+        """
+
+        if self._incoming_id is None:
+            # Retrieve for every node the list of nodes with an incoming edge
+            self._incoming_id = dict()
+            incoming = dict()
+            for u, neigh in self._graph.items():
+                for v in neigh:
+                    if v not in incoming:
+                        incoming[v] = []
+                    incoming[v].append(u)
+            
+            # Assign identifiers after sorting the list of incoming nodes
+            for u, nodes in incoming.items():
+                nodes.sort()
+                id = 0
+                for v in nodes:
+                    if u not in self._incoming_id:
+                        self._incoming_id[u] = dict()
+                    self._incoming_id[u][v] = id
+                    id += 1
+                    
+        return self._incoming_id[target_node][other_node]
 
     def __repr__(self):
         return str(self._graph)
