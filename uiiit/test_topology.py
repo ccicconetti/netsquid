@@ -110,9 +110,17 @@ Edges: (5):
         self.assertEqual(2, net.incoming_id(4, 5))
         self.assertEqual(3, net.incoming_id(4, 7))
 
+        self.assertEqual(1, net.neigh_from_id(4, 0))
+        self.assertEqual(3, net.neigh_from_id(4, 1))
+        self.assertEqual(5, net.neigh_from_id(4, 2))
+        self.assertEqual(7, net.neigh_from_id(4, 3))
+
         self.assertEqual({5, 7}, net.neigh(8))
         self.assertEqual(0, net.incoming_id(8, 5))
         self.assertEqual(1, net.incoming_id(8, 7))
+
+        self.assertEqual(5, net.neigh_from_id(8, 0))
+        self.assertEqual(7, net.neigh_from_id(8, 1))
 
     def test_brite(self):
         with tempfile.NamedTemporaryFile() as fp:

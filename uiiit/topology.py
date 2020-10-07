@@ -146,30 +146,35 @@ class Topology:
         target_node : int
             Node for which the edge is incoming.
         other_node : int
-            Neighbor of target_node for which we return the edge identifier
+            Neighbor of target_node for which we return the edge identifier.
         """
 
-        if self._incoming_id is None:
-            # Retrieve for every node the list of nodes with an incoming edge
-            self._incoming_id = dict()
-            incoming = dict()
-            for u, neigh in self._graph.items():
-                for v in neigh:
-                    if v not in incoming:
-                        incoming[v] = []
-                    incoming[v].append(u)
-            
-            # Assign identifiers after sorting the list of incoming nodes
-            for u, nodes in incoming.items():
-                nodes.sort()
-                id = 0
-                for v in nodes:
-                    if u not in self._incoming_id:
-                        self._incoming_id[u] = dict()
-                    self._incoming_id[u][v] = id
-                    id += 1
-                    
+        self._create_incoming_id()
         return self._incoming_id[target_node][other_node]
+
+    def neigh_from_id(self, target_node, target_id):
+        """Return the neighbor associated to given edge identifier for a node.
+
+        Parameters
+        ----------
+        target_node : int
+            Node for which the edge is incoming.
+        target_id : int
+            Edge identifier.
+
+        Raises
+        -----
+        IndexError
+            If target_node does not have an edge with target_id
+
+        """
+
+        self._create_incoming_id()
+        for v, cur_id in self._incoming_id[target_node].items():
+            if cur_id == target_id:
+                return v
+
+        raise IndexError(f"Cannot find edge identifier {target_id} for node {target_node}")
 
     def __repr__(self):
         return str(self._graph)
@@ -255,3 +260,26 @@ class Topology:
 
         return ret
 
+    def _create_incoming_id(self):
+        # Do not overwrite a previously-created data structure
+        if self._incoming_id is not None:
+            return
+
+        # Retrieve for every node the list of nodes with an incoming edge
+        self._incoming_id = dict()
+        incoming = dict()
+        for u, neigh in self._graph.items():
+            for v in neigh:
+                if v not in incoming:
+                    incoming[v] = []
+                incoming[v].append(u)
+        
+        # Assign identifiers after sorting the list of incoming nodes
+        for u, nodes in incoming.items():
+            nodes.sort()
+            id = 0
+            for v in nodes:
+                if u not in self._incoming_id:
+                    self._incoming_id[u] = dict()
+                self._incoming_id[u][v] = id
+                id += 1
