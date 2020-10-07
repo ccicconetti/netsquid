@@ -33,6 +33,12 @@ class Topology:
         If the type is not supported.
     """
     def __init__(self, type, size=1, in_file_name=""):
+        # Lazy-initialized list of the (unidirectional) edges
+        self._edges = None
+
+        # Lazy-initialized list of pairs of nodes with a bi-directional connection
+        self._biedges = None
+
         # The graph stored as a dictionary where:
         # key: node's name
         # value: all the nodes that have an edge with the node in the key as a set 
@@ -94,6 +100,40 @@ class Topology:
         else:
             raise ValueError(f'Invalid topology type: {type}')
 
+    def edges(self):
+        """Return the list of unidirectional edges"""
+
+        # Lazy initialization
+        if self._edges is not None:
+            return self._edges
+
+        self._edges = []
+        for u, neigh in self._graph.items():
+            for v in neigh:
+                self._edges.append([u, v])
+
+        self._edges.sort()
+        return self._edges 
+
+    def biedges(self):
+        """Return the list of pairs of node which have a bidirectional connection
+        """
+
+        # Lazy initialization
+        if self._biedges is not None:
+            return self._biedges
+
+        self._biedges = []
+        for u, neigh in self._graph.items():
+            for v in neigh:
+                pair = [u ,v]
+                pair.sort()
+                if pair not in self._biedges:
+                    self._biedges.append(pair)
+
+        self._biedges.sort()
+        return self._biedges 
+
     def __repr__(self):
         return str(self._graph)
 
@@ -145,27 +185,21 @@ class Topology:
         "Save the current network to a graph using Graphviz"
 
         with open('{}.dot'.format(dotfilename), 'w') as dotfile:
-            dotfile.write('graph G {\n')
+            dotfile.write('digraph G {\n')
             dotfile.write('overlap=scale;\n')
             dotfile.write('node [shape=ellipse];\n')
-            edges = []
             for u, neigh in self._graph.items():
                 for v in neigh:
-                    new_edge = [u,v]
-                    new_edge.sort()
-                    if new_edge in edges:
-                        continue
-                    edges.append(new_edge)
-                    dotfile.write(f'{u} -- {v};\n')
+                    dotfile.write(f'{u} -> {v};\n')
                 dotfile.write(f'{u} [shape=rectangle]\n')
             dotfile.write('}\n')
 
         subprocess.Popen(
-            ['neato', '-Tpng',
+            ['dot', '-Tpng',
              '-o{}.png'.format(dotfilename),
              '{}.dot'.format(dotfilename)])
         subprocess.Popen(
-            ['neato', '-Tsvg',
+            ['dot', '-Tsvg',
              '-o{}.svg'.format(dotfilename),
              '{}.dot'.format(dotfilename)])
 

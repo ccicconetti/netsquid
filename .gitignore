@@ -1,6 +1,7 @@
 settings.json
 netsquid.code-workspace
 dist
+mygraph.*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

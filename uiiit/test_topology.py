@@ -61,7 +61,17 @@ Edges: (5):
         with self.assertRaises(KeyError):
             Topology.traversing(prev, 4, 0)
 
-        self.assertEqual("{0: {1}, 1: {0, 2}, 2: {1, 3}, 3: {2, 4}, 4: {3}}", str(net5))
+        self.assertEqual(
+            "{0: {1}, 1: {0, 2}, 2: {1, 3}, 3: {2, 4}, 4: {3}}",
+            str(net5))
+
+        self.assertEqual(
+            [[0, 1], [1, 0], [1, 2], [2, 1], [2, 3], [3, 2], [3, 4], [4, 3]],
+            net5.edges())            
+
+        self.assertEqual(
+            [[0, 1], [1, 2], [2, 3], [3, 4]],
+            net5.biedges())            
 
     def test_grid(self):
         with self.assertRaises(ValueError):
@@ -102,7 +112,7 @@ Edges: (5):
             self.assertEqual({0, 1, 3}, net.neigh(2))
             self.assertEqual({1, 2}, net.neigh(3))
 
-    @unittest.skip
+    # @unittest.skip
     def test_graphviz(self):
         Topology("grid", size=4).save_dot("mygraph")
 
