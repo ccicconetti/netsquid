@@ -363,8 +363,10 @@ class Topology:
             dotfile.write('node [shape=ellipse];\n')
             for u, neigh in self._graph.items():
                 for v in neigh:
-                    dotfile.write(f'{u} -> {v};\n')
-                dotfile.write(f'{u} [shape=rectangle]\n')
+                    u_name = self.get_name_by_id(u)
+                    v_name = self.get_name_by_id(v)
+                    dotfile.write(f'{u_name} -> {v_name};\n')
+                dotfile.write(f'{u_name} [shape=rectangle]\n')
             dotfile.write('}\n')
 
         subprocess.Popen(
