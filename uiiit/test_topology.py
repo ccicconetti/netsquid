@@ -62,10 +62,6 @@ Edges: (5):
             Topology.traversing(prev, 4, 0)
 
         self.assertEqual(
-            "{0: {1}, 1: {0, 2}, 2: {1, 3}, 3: {2, 4}, 4: {3}}",
-            str(net5))
-
-        self.assertEqual(
             [[0, 1], [1, 0], [1, 2], [2, 1], [2, 3], [3, 2], [3, 4], [4, 3]],
             net5.edges())            
 
@@ -82,7 +78,7 @@ Edges: (5):
 
         net1 = Topology("grid", size=1)
         self.assertEqual(1, net1.num_nodes)
-        self.assertEqual("{0: set()}", str(net1))
+        self.assertEqual("{'0': set()}", str(net1))
 
         net4 = Topology("grid", size=4)
         self.assertEqual(16, net4.num_nodes)

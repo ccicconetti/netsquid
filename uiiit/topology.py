@@ -47,6 +47,9 @@ class Topology:
         # identifier, unique for each node, to every incoming edge
         self._incoming_id = None
 
+        # Lazy-initialized data structure for string representation
+        self._str_repr = None
+
         # The graph stored as a dictionary where:
         # key: the node identifier (u)
         # value: all the nodes that have a directed edge towards u
@@ -154,6 +157,9 @@ class Topology:
             self._id_by_names[node_name] = node_id
 
         self.node_names = set(node_names.values())
+
+        # Reset the data structure for the string representation
+        self._str_repr = None
 
     def get_name_by_id(self, node_id):
         """Return the name corresponding to the given identifier.
@@ -272,7 +278,15 @@ class Topology:
         raise IndexError(f"Cannot find edge identifier {edge_id} for node {target_node}")
 
     def __repr__(self):
-        return str(self._graph)
+        if self._str_repr is None:
+            self._str_repr = dict()
+            for u, neigh in self._graph.items():
+                u_name = self.get_name_by_id(u)
+                self._str_repr[u_name] = set()
+                for v in neigh:
+                    self._str_repr[u_name].add(self.get_name_by_id(v))
+
+        return str(self._str_repr)
 
     def neigh(self, node):
         """Return the neighbours of the given node
