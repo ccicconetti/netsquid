@@ -161,6 +161,28 @@ class Topology:
         # Reset the data structure for the string representation
         self._str_repr = None
 
+    def copy_names(self, other):
+        """Copy the names from another topology.
+
+        Parameters
+        ----------
+        other : `Topology`
+            The topology from which to re-use names.
+        
+        Raises
+        ------
+        KeyError
+            If `other` does not define some of the nodes that are in the
+            current `Topology` object.
+        
+        """
+
+        node_names = dict()
+        for u in self._graph.keys():
+            node_names[u] = other.get_name_by_id(u)
+        
+        self.assign_names(node_names)
+
     def get_name_by_id(self, node_id):
         """Return the name corresponding to the given identifier.
 

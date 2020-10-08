@@ -251,6 +251,17 @@ Edges: (5):
         self.assertEqual('Z', net.get_name_by_id(0))
         self.assertEqual(0, net.get_id_by_name('Z'))
 
+    def test_copy_names(self):
+        net = Topology("chain", size=4)
+
+        net.assign_names({0: "Mickey", 1: "Goofy", 2: "Donald", 3: "Minnie"})
+
+        net2 = Topology("chain", size=3)
+
+        net2.copy_names(net)
+
+        self.assertEqual({'Donald', 'Goofy', 'Mickey'}, net2.node_names)
+
     def test_extract_bidirectional(self):
         net = Topology("edges", edges=[
             [0, 1],
