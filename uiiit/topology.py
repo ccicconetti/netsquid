@@ -26,6 +26,8 @@ class Topology:
     ----------
     num_nodes : int
         Number of nodes in the network.
+    node_names : set
+        Set of node names.
 
     Raises
     ------
@@ -109,6 +111,10 @@ class Topology:
         else:
             raise ValueError(f'Invalid topology type: {type}')
 
+        # Create the list of node names with identifiers, until `assign_names()`
+        # is called
+        self.node_names = set([str(x) for x in range(self.num_nodes)])
+
     def assign_names(self, node_names):
         """Assign names to nodes. Can be called multiple times.
 
@@ -134,6 +140,8 @@ class Topology:
         for i in range(self.num_nodes):
             self._names_by_id[i] = node_names[i]
             self._id_by_names[node_names[i]] = i
+
+        self.node_names = set(node_names)
 
     def get_name_by_id(self, node_id):
         """Return the name corresponding to the given identifier.
@@ -178,7 +186,7 @@ class Topology:
             raise ValueError(f"Invalid node name: {node_name}")
 
         return node_id
-
+    
     def edges(self):
         """Return the list of unidirectional edges"""
 

@@ -138,6 +138,8 @@ Edges: (5):
 
         # Use name functions without assigning names
 
+        self.assertEqual({'0', '1', '2', '3', '4'}, net.node_names)
+
         self.assertEqual('0', net.get_name_by_id(0))
         self.assertEqual('4', net.get_name_by_id(4))
 
@@ -162,6 +164,8 @@ Edges: (5):
 
         net.assign_names(['A', 'B', 'C', 'D', 'E'])
 
+        self.assertEqual({'A', 'B', 'C', 'D', 'E'}, net.node_names)
+
         self.assertEqual('A', net.get_name_by_id(0))
         self.assertEqual('B', net.get_name_by_id(1))
         self.assertEqual('C', net.get_name_by_id(2))
@@ -182,6 +186,8 @@ Edges: (5):
 
         # Re-assign names
         net.assign_names(['F', 'G', 'H', 'I', 'J'])
+
+        self.assertEqual({'F', 'G', 'H', 'I', 'J'}, net.node_names)
 
         self.assertEqual('F', net.get_name_by_id(0))
         self.assertEqual(0, net.get_id_by_name('F'))
