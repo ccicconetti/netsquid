@@ -72,6 +72,17 @@ class SwapProtocol(NodeProtocol):
             yield self.await_signal(self._oracle, Signals.SUCCESS)
 
             # Entangle the memory positions as specified by the oracle
+            if self.node.name in self._oracle.mem_pos:
+                for item in self._oracle.mem_pos[self.node.name]:
+                    pos1, pos2 = item
+                    logging.debug(f"{ns.sim_time():.1f}: {self.node.name} ready to swap by measuring on {pos1} and {pos2}")
+                    # self.node.qmemory.execute_program(self._program, qubit_mapping=[1, 0])
+                    # yield self.await_program(self.node.qmemory)
+                    # m, = self._program.output["m"]
+                    # m1, m2 = self._bsm_op_indices[m]
+                    # # Send result to right node on end
+                    # logging.debug(f"{ns.sim_time():.1f}: {self.node.name} sending corrections out")
+                    # self.node.ports["ccon_R"].tx_output(Message([m1, m2], path=0, timeslot=self.oracle.timeslot))
 
             # Pop all non-empty but unused memory positions
             # XXX
@@ -161,9 +172,11 @@ class Oracle(Protocol):
                 prv_pos = self._topology.incoming_id(cur, prv)
                 nxt_pos = self._topology.incoming_id(cur, nxt)
                 logging.debug(f"timeslot #{self.timeslot}, on node {cur} entangle node {prv} (mem pos {prv_pos}) and node {nxt} (mem pos {nxt_pos})")
+
+                cur_name = self._topology.get_name_by_id(cur)
                 if cur not in self.mem_pos:
-                    self.mem_pos[cur] = []
-                self.mem_pos[cur].append([prv_pos, nxt_pos])
+                    self.mem_pos[cur_name] = []
+                self.mem_pos[cur_name].append([prv_pos, nxt_pos])
 
         # Notify all nodes that they can proceed
         self.send_signal(Signals.SUCCESS)
