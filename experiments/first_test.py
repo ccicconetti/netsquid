@@ -15,6 +15,7 @@ from netsquid.components.instructions import INSTR_MEASURE_BELL
 from uiiit.qnetwork import QNetworkUniform
 from uiiit.qrepeater import QRepeater
 from uiiit.topology import Topology
+from uiiit.traffic import SinglePairConstantApplication
 
 __all__ = []
 
@@ -70,6 +71,11 @@ class SwapProtocol(NodeProtocol):
             # Wait for the oracle to take its decisions
             yield self.await_signal(self._oracle, Signals.SUCCESS)
 
+            # Entangle the memory positions as specified by the oracle
+
+            # Pop all non-empty but unused memory positions
+            # XXX
+
 class Oracle(Protocol):
     """Network oracle: knows everything, can communicate at zero delay.
 
@@ -78,19 +84,26 @@ class Oracle(Protocol):
     network : `netsquid.nodes.network.Network`
         The network of nodes.
     topology : `uiiit.topology.Topology`
-        The topology object.
+        The `Topology` object.
+    app : `uiiit.traffic.Application`
+        The application that selects the nodes wishing to establish
+        end-to-end entanglement timeslot by timeslot.
 
     """
-    def __init__(self, network, topology):
+    def __init__(self, network, topology, app):
         super().__init__(name="Oracle")
 
         self._topology = topology
         self._network = network
+        self._app = app
+
         self._edges = []
         self._pending_nodes = set(topology.node_names)
-        self.timeslot = 0
 
-        print(f"Create Oracle for network {network.name} with nodes: {topology.node_names}")
+        self.timeslot = 0
+        self.mem_pos = dict()
+
+        print(f"Create Oracle for network {network.name}, app {app.name}, nodes: {topology.node_names}")
 
     def link_good(self, node_name, positions):
         """Mark a link as good, i.e., entanglement has succeeded.
@@ -125,6 +138,32 @@ class Oracle(Protocol):
         graph_bi = graph_uni.extract_bidirectional()
         logging.debug(f"timeslot #{self.timeslot}, reduced graph {graph_bi}")
         # graph_bi.save_dot(f"graph_bi{self.timeslot}")
+
+        # Retrieve from the application the list of pairs with e2e entanglement
+        pairs = self._app.get_pairs(self.timeslot)
+
+        assert len(pairs) == 1
+        alice = graph_bi.get_id_by_name(pairs[0][0])
+        bob = graph_bi.get_id_by_name(pairs[0][1])
+        prev, _ = graph_bi.spt(alice)
+        if prev[bob] is not None:
+            # remove previous entanglement data structure
+            self.mem_pos.clear()
+
+            # there is a path between alice and bob
+            swap_nodes = Topology.traversing(prev, bob, alice)
+            logging.debug(f"timeslot #{self.timeslot}, path {bob}, {', '.join([str(x) for x in swap_nodes])}, {alice}")
+
+            for i in range(len(swap_nodes)):
+                cur = swap_nodes[i]
+                prv = bob if i == 0 else swap_nodes[i-1]
+                nxt = alice if i == (len(swap_nodes)-1) else swap_nodes[i+1]
+                prv_pos = self._topology.incoming_id(cur, prv)
+                nxt_pos = self._topology.incoming_id(cur, nxt)
+                logging.debug(f"timeslot #{self.timeslot}, on node {cur} entangle node {prv} (mem pos {prv_pos}) and node {nxt} (mem pos {nxt_pos})")
+                if cur not in self.mem_pos:
+                    self.mem_pos[cur] = []
+                self.mem_pos[cur].append([prv_pos, nxt_pos])
 
         # Notify all nodes that they can proceed
         self.send_signal(Signals.SUCCESS)
@@ -186,8 +225,12 @@ def run_simulation(num_nodes, node_distance, timeslots, seed):
 
     protocol = LocalProtocol(nodes=network.nodes)
 
+    # Create the application that will select the pairs of nodes wishing
+    # to share entanglement
+    app = SinglePairConstantApplication("ConstApp", "Node_0", "Node_5")
+
     # Create the oracle and add it to the local protocol
-    oracle = Oracle(network, topology)
+    oracle = Oracle(network, topology, app)
     protocol.add_subprotocol(oracle)
 
     # Add SwapProtocol to all repeater nodes. Note: we use unique names,
