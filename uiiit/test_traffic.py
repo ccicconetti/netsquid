@@ -7,7 +7,9 @@ from traffic import SinglePairConstantApplication
 
 class TestApplication(unittest.TestCase):
     def test_single_pair_constant_application(self):
-        app = SinglePairConstantApplication("alice", "bob")
+        app = SinglePairConstantApplication("App", "alice", "bob")
+
+        self.assertEqual("App", app.name)
 
         for timeslot in range(10):
             self.assertEqual(("alice", "bob", 1), app.get_pairs(timeslot))

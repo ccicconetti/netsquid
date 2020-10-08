@@ -8,9 +8,19 @@ __all__ = [
 
 class Application:
     """Generic class for quantum applications.
+
+    Parameters
+    ----------
+    name : str
+        A name to identify this application.
+
+    Properties
+    ----------
+    name : str
+        A name to identify this application.
     """
-    def __init__(self):
-        pass
+    def __init__(self, name):
+        self.name = name
 
     def get_pairs(self, timeslot):
         """Return the list of (A, B, min) tuples for a given timeslot.
@@ -35,6 +45,8 @@ class SinglePairConstantApplication(Application):
 
     Parameters
     ----------
+    name : str
+        A name to identify this application.
     alice : str
         The name of the first end-point
     bob : str
@@ -42,7 +54,9 @@ class SinglePairConstantApplication(Application):
     
     """
 
-    def __init__(self, alice, bob):
+    def __init__(self, name, alice, bob):
+        super().__init__(name)
+        
         self._alice = alice
         self._bob = bob
 
