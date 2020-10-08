@@ -12,7 +12,9 @@ class TestApplication(unittest.TestCase):
         self.assertEqual("App", app.name)
 
         for timeslot in range(10):
-            self.assertEqual(("alice", "bob", 1), app.get_pairs(timeslot))
+            pairs = app.get_pairs(timeslot)
+            self.assertEqual(1, len(pairs))
+            self.assertEqual(("alice", "bob", 1), pairs[0])
 
 if __name__ == '__main__':
     unittest.main()

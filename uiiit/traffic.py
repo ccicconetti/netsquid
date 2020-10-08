@@ -56,9 +56,9 @@ class SinglePairConstantApplication(Application):
 
     def __init__(self, name, alice, bob):
         super().__init__(name)
-        
+
         self._alice = alice
         self._bob = bob
 
     def get_pairs(self, timeslot):
-        return (self._alice, self._bob, 1)
+        return [(self._alice, self._bob, 1)]
