@@ -12,15 +12,17 @@ class Topology:
     
     Parameters
     ----------
-    type : { 'chain', 'grid', 'brite' }
+    type : { 'chain', 'grid', 'brite', 'edges' }
         Type of the network to create.
     size : int, optional
         The actual meaning depends on the network type: 
-        with grid, this is the number of nodes on any side of the square;
-        with chain, it's the size of the chain.
+        with "grid", this is the number of nodes on any side of the square;
+        with "chain", it's the size of the chain.
         It is unused with other topology types.
     in_file_name : str, optional
-        Name of the input file. Only used with a brite topology.
+        Name of the input file. Only used with a "brite" topology.
+    edges : list, optional
+        List of edges [dst -> src]. Only used with an "edges" topology.
 
     Properties
     ----------
@@ -34,7 +36,7 @@ class Topology:
     ValueError
         If the type is not supported.
     """
-    def __init__(self, type, size=1, in_file_name=""):
+    def __init__(self, type, size=1, in_file_name="", edges=[]):
         # Lazy-initialized list of the (unidirectional) edges
         self._edges = None
 
@@ -85,7 +87,6 @@ class Topology:
                 self._graph[u] = set(neighbours)
             
         elif type == "brite":
-            print(in_file_name)
             # Read from file
             with open(in_file_name, 'r') as in_file:
                 edge_mode = False
@@ -107,6 +108,17 @@ class Topology:
                     self._graph[v].add(u)
 
                 self.num_nodes = len(self._graph)
+
+        elif type == "edges":
+            if not edges:
+                raise ValueError("Invalid empty set of edges")
+
+            for [u, v] in edges:
+                if u not in self._graph:
+                    self._graph[u] = set()
+                self._graph[u].add(v)
+
+            self.num_nodes = len(self._graph)
 
         else:
             raise ValueError(f'Invalid topology type: {type}')
@@ -285,12 +297,12 @@ class Topology:
 
         dist[source] = 0
 
-        while len(Q) > 0:
+        while Q:
             u = None
             last_value = None
             for node in Q:
                 value = dist[node]
-                if not u or value < last_value:
+                if u is None or value < last_value:
                     u = node
                     last_value = value
             Q.remove(u)

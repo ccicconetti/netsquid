@@ -133,6 +133,37 @@ Edges: (5):
             self.assertEqual({0, 1, 3}, net.neigh(2))
             self.assertEqual({1, 2}, net.neigh(3))
 
+    def test_edges(self):
+        #
+        # 0 ---> 1 ---> 2 <--> 3
+        # ^                    |
+        # +--------------------+
+        #
+        with self.assertRaises(ValueError):
+            _ = Topology("edges")
+
+        net = Topology("edges", edges=[
+            [1, 0],
+            [2, 1],
+            [3, 2],
+            [2, 3],
+            [0, 3],
+        ])
+
+        self.assertEqual(4, net.num_nodes)
+
+        self.assertEqual({3}, net.neigh(0))
+        self.assertEqual({0}, net.neigh(1))
+        self.assertEqual({1, 3}, net.neigh(2))
+        self.assertEqual({2}, net.neigh(3))
+
+        # shortest path tree to go to 3
+        prev, dist = net.spt(3)
+        self.assertEqual(3, dist[0]) # distance 0 -> 3 = 3 hops
+        self.assertEqual(1, prev[0]) # next hop from 0 to 3 is 1
+        # from 0 to 3 the path is 1 --> 2
+        self.assertEqual([1, 2], Topology.traversing(prev, 0, 3)) 
+
     def test_names(self):
         net = Topology("chain", size=5)
 
