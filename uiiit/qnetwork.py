@@ -53,7 +53,7 @@ class QNetworkUniform:
             Network component with all nodes and connections as subcomponents.
         """
 
-        network = Network("Repeater_chain_network")
+        network = Network(name)
 
         # To prepend leading zeros to the number
         num_zeros = int(np.log10(topology.num_nodes)) + 1
