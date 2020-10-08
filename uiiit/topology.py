@@ -12,8 +12,8 @@ class Topology:
     
     Parameters
     ----------
-    type : str
-        Type of the network to create, one of: chain, grid, brite.
+    type : { 'chain', 'grid', 'brite' }
+        Type of the network to create.
     size : int, optional
         The actual meaning depends on the network type: 
         with grid, this is the number of nodes on any side of the square;
@@ -48,6 +48,11 @@ class Topology:
         # value: all the nodes that have an edge with the node in the key as a set 
         self._graph = dict()
 
+        # The names optionally assigned to nodes
+        self._names_by_id = None
+        self._id_by_names = None
+
+        # Create the graph
         if type == "chain":
             if size < 1:
                 raise ValueError(f'Invalid size value for chain: {size}')
@@ -103,6 +108,76 @@ class Topology:
 
         else:
             raise ValueError(f'Invalid topology type: {type}')
+
+    def assign_names(self, node_names):
+        """Assign names to nodes. Can be called multiple times.
+
+        Parameters
+        ----------
+        node_names : list
+            List of names to be assigned.
+
+        Raises
+        ------
+        ValueError
+            If the length of `node_names` is not equal to the number of nodes.
+        
+        """
+
+        self._names_by_id = dict()
+        self._id_by_names = dict()
+
+        if len(node_names) != self.num_nodes:
+            raise ValueError((f"Invalid list of names (length {len(node_names)}"
+                              f" for a graph with {self.num_nodes} nodes"))
+
+        for i in range(self.num_nodes):
+            self._names_by_id[i] = node_names[i]
+            self._id_by_names[node_names[i]] = i
+
+    def get_name_by_id(self, node_id):
+        """Return the name corresponding to the given identifier.
+
+        If nodes do not have assigned names, then the identifier itself is
+        returned as a string.
+
+        Raises
+        ------
+        KeyError
+            The `node_id` does not exist.
+
+        """
+
+        if self._names_by_id:
+            return self._names_by_id[node_id]
+
+        return str(node_id)
+
+    def get_id_by_name(self, node_name):
+        """Return the node identifier corresponding to the given name.
+
+        If nodes do not have assigned names, then a conversion from `node_name`
+        to string is attempted.
+
+        Raises
+        ------
+        ValueError
+            Node names have not been assigned and `node_name` cannot be
+            converted to an int, or the conversion succeeds but the value is
+            out of the possible range.
+        KeyError
+            The `node_name` does not exist.
+
+        """
+
+        if self._id_by_names:
+            return self._id_by_names[node_name]
+
+        node_id = int(node_name)
+        if node_id >= self.num_nodes or node_id < 0:
+            raise ValueError(f"Invalid node name: {node_name}")
+
+        return node_id
 
     def edges(self):
         """Return the list of unidirectional edges"""
