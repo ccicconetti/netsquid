@@ -164,6 +164,25 @@ Edges: (5):
         # from 0 to 3 the path is 1 --> 2
         self.assertEqual([1, 2], Topology.traversing(prev, 0, 3)) 
 
+    def test_edges_sparse(self):
+        with self.assertRaises(ValueError):
+            _ = Topology("edges")
+
+        net = Topology("edges", edges=[
+            [10, 0],
+            [20, 10],
+            [30, 20],
+            [20, 30],
+            [0,  30],
+        ])
+
+        self.assertEqual(4, net.num_nodes)
+
+        self.assertEqual({30}, net.neigh(0))
+        self.assertEqual({0}, net.neigh(10))
+        self.assertEqual({10, 30}, net.neigh(20))
+        self.assertEqual({20}, net.neigh(30))
+
     def test_names(self):
         net = Topology("chain", size=5)
 
@@ -185,16 +204,28 @@ Edges: (5):
 
         # Assign names
         with self.assertRaises(ValueError):
-            net.assign_names([])
+            net.assign_names(dict())
+
+        node_names = {
+            0: 'A',
+            1: 'B',
+            2: 'C',
+            3: 'D',
+        }
 
         with self.assertRaises(ValueError):
-            net.assign_names(['A', 'B', 'C', 'D'])
+            net.assign_names(node_names)
+
+        node_names[4] = 'E'
+        node_names[5] = 'F'
 
         with self.assertRaises(ValueError):
-            net.assign_names(['A', 'B', 'C', 'D', 'E', 'F'])
+            net.assign_names(node_names)
 
-        net.assign_names(['A', 'B', 'C', 'D', 'E'])
+        del node_names[5]
 
+        net.assign_names(node_names)
+            
         self.assertEqual({'A', 'B', 'C', 'D', 'E'}, net.node_names)
 
         self.assertEqual('A', net.get_name_by_id(0))
@@ -216,12 +247,59 @@ Edges: (5):
             _ = net.get_id_by_name('F')
 
         # Re-assign names
-        net.assign_names(['F', 'G', 'H', 'I', 'J'])
+        node_names[0] = 'Z'
+        net.assign_names(node_names)
 
-        self.assertEqual({'F', 'G', 'H', 'I', 'J'}, net.node_names)
+        self.assertEqual({'Z', 'B', 'C', 'D', 'E'}, net.node_names)
 
-        self.assertEqual('F', net.get_name_by_id(0))
-        self.assertEqual(0, net.get_id_by_name('F'))
+        self.assertEqual('Z', net.get_name_by_id(0))
+        self.assertEqual(0, net.get_id_by_name('Z'))
+
+    def test_extract_bidirectional(self):
+        net = Topology("edges", edges=[
+            [0, 1],
+            [0, 4],
+            [1, 0],
+            [1, 3],
+            [2, 1],
+            [3, 1],
+            [3, 2],
+            [3, 4],
+            [4, 3]
+        ])
+        
+        node_names = {
+            0: 'A',
+            1: 'B',
+            2: 'C',
+            3: 'D',
+            4: 'E',
+        }
+
+        net.assign_names(node_names)
+
+        net_bi = net.extract_bidirectional()
+
+        self.assertEqual({1}, net_bi.neigh(0))
+        self.assertEqual({0, 3}, net_bi.neigh(1))
+        self.assertEqual({1, 4}, net_bi.neigh(3))
+        self.assertEqual({3}, net_bi.neigh(4))
+
+        self.assertEqual('A', net_bi.get_name_by_id(0))
+        self.assertEqual('B', net_bi.get_name_by_id(1))
+        self.assertEqual('D', net_bi.get_name_by_id(3))
+        self.assertEqual('E', net_bi.get_name_by_id(4))
+
+        self.assertEqual(0, net_bi.get_id_by_name('A'))
+        self.assertEqual(1, net_bi.get_id_by_name('B'))
+        self.assertEqual(3, net_bi.get_id_by_name('D'))
+        self.assertEqual(4, net_bi.get_id_by_name('E'))
+
+        with self.assertRaises(KeyError):
+            _ = net_bi.get_name_by_id(2)
+
+        with self.assertRaises(KeyError):
+            _ = net_bi.get_id_by_name('C')
 
     @unittest.skip
     def test_graphviz(self):

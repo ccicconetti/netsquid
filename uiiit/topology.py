@@ -48,8 +48,8 @@ class Topology:
         self._incoming_id = None
 
         # The graph stored as a dictionary where:
-        # key: node's name
-        # value: all the nodes that have an edge with the node in the key as a set 
+        # key: the node identifier (u)
+        # value: all the nodes that have a directed edge towards u
         self._graph = dict()
 
         # The names optionally assigned to nodes
@@ -132,28 +132,28 @@ class Topology:
 
         Parameters
         ----------
-        node_names : list
-            List of names to be assigned.
+        node_names : dict
+            Assign a name (str) to each identifier (int).
 
         Raises
         ------
         ValueError
-            If the length of `node_names` is not equal to the number of nodes.
+            If not all nodes are assigned a name or if there are some names
+            that do not correspond to a node identifier.
         
         """
+
+        if set(self._graph.keys()) != set(node_names.keys()):
+            raise ValueError(f"Invalid names provided")
 
         self._names_by_id = dict()
         self._id_by_names = dict()
 
-        if len(node_names) != self.num_nodes:
-            raise ValueError((f"Invalid list of names (length {len(node_names)}"
-                              f" for a graph with {self.num_nodes} nodes"))
+        for node_id, node_name in node_names.items():
+            self._names_by_id[node_id] = node_name
+            self._id_by_names[node_name] = node_id
 
-        for i in range(self.num_nodes):
-            self._names_by_id[i] = node_names[i]
-            self._id_by_names[node_names[i]] = i
-
-        self.node_names = set(node_names)
+        self.node_names = set(node_names.values())
 
     def get_name_by_id(self, node_id):
         """Return the name corresponding to the given identifier.
@@ -247,29 +247,29 @@ class Topology:
         self._create_incoming_id()
         return self._incoming_id[target_node][other_node]
 
-    def neigh_from_id(self, target_node, target_id):
+    def neigh_from_id(self, target_node, edge_id):
         """Return the neighbor associated to given edge identifier for a node.
 
         Parameters
         ----------
         target_node : int
             Node for which the edge is incoming.
-        target_id : int
+        edge_id : int
             Edge identifier.
 
         Raises
         -----
         IndexError
-            If target_node does not have an edge with target_id
+            If `target_node` does not have an edge with the given edge identifier
 
         """
 
         self._create_incoming_id()
         for v, cur_id in self._incoming_id[target_node].items():
-            if cur_id == target_id:
+            if cur_id == edge_id:
                 return v
 
-        raise IndexError(f"Cannot find edge identifier {target_id} for node {target_node}")
+        raise IndexError(f"Cannot find edge identifier {edge_id} for node {target_node}")
 
     def __repr__(self):
         return str(self._graph)
@@ -339,6 +339,37 @@ class Topology:
             ['dot', '-Tsvg',
              '-o{}.svg'.format(dotfilename),
              '{}.dot'.format(dotfilename)])
+
+    def extract_bidirectional(self):
+        """Return a new `Topology` object with only bidirectional edges.
+
+        The edges that are not bidirectional are removed.
+
+        As a result, the returned graph can have less nodes than the original.
+
+        If the original graph has names assigned to nodes, they are re-used.
+
+        """
+
+        nodes_kept = set()
+        edges = []
+        for u, neigh in self._graph.items():
+            for v in neigh:
+                if u in self._graph[v]:
+                    edges.append([u, v])
+                    edges.append([v, u])
+                    nodes_kept.add(u)
+                    nodes_kept.add(v)
+
+        topo = Topology("edges", edges=edges)
+        
+        node_names = dict()
+        for node_id in nodes_kept:
+            node_names[node_id] = self.get_name_by_id(node_id)
+
+        topo.assign_names(node_names)
+
+        return topo
 
     @staticmethod
     def traversing(spt, src, dst):
