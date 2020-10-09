@@ -4,7 +4,6 @@ Example experiment with quantum repeaters using uiiit modules.
 
 import random
 import logging
-import pandas
 
 import pydynaa
 import netsquid as ns
@@ -17,6 +16,7 @@ from uiiit.qnetwork import QNetworkUniform
 from uiiit.qrepeater import QRepeater
 from uiiit.topology import Topology
 from uiiit.traffic import SinglePairConstantApplication
+from uiiit.simstat import Stat, plot_single
 
 __all__ = []
 
@@ -174,7 +174,7 @@ class SwapProtocol(NodeProtocol):
                             self._rx_messages.clear()
                     else:
                         # we must forward the message to its next hop
-                        self._forward(msg, dst_name)
+                        self._forward(msg, msg.meta['destination'])
 
     def _handle_correct_msg(self, msg):
         """Handle a new incoming correction message `msg`. Return if executed."""
@@ -225,6 +225,8 @@ class Oracle(Protocol):
     app : `uiiit.traffic.Application`
         The application that selects the nodes wishing to establish
         end-to-end entanglement timeslot by timeslot.
+    stat : `uiiit.simstat.Stat`
+        The statistics collection module.
 
     Properties
     ----------
@@ -248,21 +250,20 @@ class Oracle(Protocol):
         This structure is overwritten at every new timeslot.
 
     """
-    def __init__(self, network, topology, app):
+    def __init__(self, network, topology, app, stat):
         super().__init__(name="Oracle")
 
         self._topology = topology
-        self._network = network
-        self._app = app
+        self._network  = network
+        self._app      = app
+        self._stat     = stat
 
         self._edges = []
         self._pending_nodes = set(topology.node_names)
 
         self.timeslot = 0
-        self.mem_pos = dict()
-        self.path = dict()
-
-        self.num_successful = 0
+        self.mem_pos  = dict()
+        self.path     = dict()
 
         print(f"Create Oracle for network {network.name}, app {app.name}, nodes: {topology.node_names}")
 
@@ -393,7 +394,7 @@ class Oracle(Protocol):
     def success(self, path_id):
         """The path `path_id` in this timeslot is successful."""
 
-        self.num_successful += 1
+        self._stat.count("success", 1)
 
         # Measure fidelity
         path = self.path[path_id]
@@ -402,8 +403,7 @@ class Oracle(Protocol):
         fidelity = ns.qubits.fidelity([qubit_a, qubit_b], ks.b00, squared=True)
         logging.debug((f"timeslot #{self.timeslot}, measured fidelity of e2e entanglement "
                        f"between {path[0]}:{path[2]} and {path[1]}:{path[3]}: {fidelity:.3f}"))
-
-        
+        self._stat.add("fidelity", fidelity)
 
 def run_simulation(num_nodes, node_distance, timeslots, seed):
     logging.info(f"starting simulation #{seed}: num_nodes = {num_nodes}, distance = {node_distance} km, messages = {timeslots}")
@@ -435,6 +435,16 @@ def run_simulation(num_nodes, node_distance, timeslots, seed):
         qrepeater_factory=qrepeater_factory,
         topology=topology)
 
+    stat = Stat(dephase_rate=dephase_rate,
+                depol_rate=depol_rate,
+                gate_duration=gate_duration,
+                node_distance=node_distance,
+                p_loss_init=p_loss_init,
+                p_loss_length=p_loss_length,
+                num_nodes=num_nodes,
+                topology="grid",
+                seed=seed)
+
     # List of nodes, sorted in lexycographic order by their names
     node_names = sorted(network.nodes.keys())
     node_names_dict = dict()
@@ -450,7 +460,7 @@ def run_simulation(num_nodes, node_distance, timeslots, seed):
     app = SinglePairConstantApplication("ConstApp", "Node_0", "Node_5")
 
     # Create the oracle and add it to the local protocol
-    oracle = Oracle(network, topology, app)
+    oracle = Oracle(network, topology, app, stat)
     protocol.add_subprotocol(oracle)
 
     # Add SwapProtocol to all repeater nodes. Note: we use unique names,
@@ -463,22 +473,43 @@ def run_simulation(num_nodes, node_distance, timeslots, seed):
     # Start simulation
     ns.sim_run(est_runtime * timeslots)
 
-    df = pandas.DataFrame()
+    logging.info(stat)
+    logging.info(f'timeslots = {timeslots}, successes = {stat.get_sum("success")}')
+    logging.info(f"fidelity = {[f'{x:.3f}' for x in stat.get_all('fidelity')]}")
 
-    return df
+    # Return the statistics collected
+    return stat
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.INFO)
     ns.set_qstate_formalism(ns.QFormalism.DM)
 
-    num_nodes=3
-    distance = 5 # km
-    timeslots = 3
-    seed = 42
+    single_sim = False
+    
+    if single_sim:
+        num_nodes = 3
+        distance = 5 # km
+        timeslots = 10
+        seed = 42
 
-    df = run_simulation(num_nodes=num_nodes,
-                        node_distance=distance,
-                        timeslots=timeslots,
-                        seed=seed)
+        run_simulation(num_nodes=num_nodes,
+                       node_distance=distance,
+                       timeslots=timeslots,
+                       seed=seed)
 
-    logging.info(df)
+    else:
+        num_nodes = 3
+        distances = [0.5, 1, 2, 4, 6, 8]
+        timeslots = 100
+        seed = 42
+        stats = []
+
+        for distance in distances:
+            print(distance)
+            stats.append(run_simulation(num_nodes=num_nodes,
+                                        node_distance=distance,
+                                        timeslots=timeslots,
+                                        seed=seed))
+        
+        plot_single(distances, "Node distance [km]", stats, "fidelity", Stat.get_avg, block=False)
+        plot_single(distances, "Node distance [km]", stats, "success", Stat.get_sum, block=True)
