@@ -25,6 +25,27 @@ Edges: (5):
 4 2 3 520.77 1.74 10.00 -1 -1 E_RT U
 """
 
+    #
+    # 0 ---> 1 ---> 2 <--> 3
+    # ^                    |
+    # +--------------------+
+    #
+    edges_test = [
+            [0,  3],
+            [1, 0],
+            [2, 1],
+            [2, 3],
+            [3, 2],
+    ]
+
+    edges_test_sparse = [
+            [0,  30],
+            [10, 0],
+            [20, 10],
+            [20, 30],
+            [30, 20],
+    ]
+
     def test_invalid_type(self):
         with self.assertRaises(ValueError):
             Topology("unknown-topology")
@@ -130,21 +151,10 @@ Edges: (5):
             self.assertEqual({1, 2}, net.neigh(3))
 
     def test_edges(self):
-        #
-        # 0 ---> 1 ---> 2 <--> 3
-        # ^                    |
-        # +--------------------+
-        #
         with self.assertRaises(ValueError):
             _ = Topology("edges")
 
-        net = Topology("edges", edges=[
-            [1, 0],
-            [2, 1],
-            [3, 2],
-            [2, 3],
-            [0, 3],
-        ])
+        net = Topology("edges", edges=self.edges_test)
 
         self.assertEqual(4, net.num_nodes)
 
@@ -164,13 +174,7 @@ Edges: (5):
         with self.assertRaises(ValueError):
             _ = Topology("edges")
 
-        net = Topology("edges", edges=[
-            [10, 0],
-            [20, 10],
-            [30, 20],
-            [20, 30],
-            [0,  30],
-        ])
+        net = Topology("edges", edges=self.edges_test_sparse)
 
         self.assertEqual(4, net.num_nodes)
 
@@ -307,6 +311,53 @@ Edges: (5):
 
         with self.assertRaises(KeyError):
             _ = net_bi.get_id_by_name('C')
+
+    def test_nexthop_distance(self):
+        net = Topology("edges", edges=self.edges_test)
+
+        # Next hop
+
+        self.assertEqual(None, net.next_hop(0, 0))
+        self.assertEqual(1, net.next_hop(0, 1))
+        self.assertEqual(1, net.next_hop(0, 2))
+        self.assertEqual(1, net.next_hop(0, 3))
+
+        self.assertEqual(2, net.next_hop(1, 0))
+        self.assertEqual(None, net.next_hop(1, 1))
+        self.assertEqual(2, net.next_hop(1, 2))
+        self.assertEqual(2, net.next_hop(1, 3))
+
+        self.assertEqual(3, net.next_hop(2, 0))
+        self.assertEqual(3, net.next_hop(2, 1))
+        self.assertEqual(None, net.next_hop(2, 2))
+        self.assertEqual(3, net.next_hop(2, 3))
+
+        self.assertEqual(0, net.next_hop(3, 0))
+        self.assertEqual(0, net.next_hop(3, 1))
+        self.assertEqual(2, net.next_hop(3, 2))
+        self.assertEqual(None, net.next_hop(3, 3))
+
+        # Distance
+
+        self.assertEqual(0, net.distance(0, 0))
+        self.assertEqual(1, net.distance(0, 1))
+        self.assertEqual(2, net.distance(0, 2))
+        self.assertEqual(3, net.distance(0, 3))
+
+        self.assertEqual(3, net.distance(1, 0))
+        self.assertEqual(0, net.distance(1, 1))
+        self.assertEqual(1, net.distance(1, 2))
+        self.assertEqual(2, net.distance(1, 3))
+
+        self.assertEqual(2, net.distance(2, 0))
+        self.assertEqual(3, net.distance(2, 1))
+        self.assertEqual(0, net.distance(2, 2))
+        self.assertEqual(1, net.distance(2, 3))
+
+        self.assertEqual(1, net.distance(3, 0))
+        self.assertEqual(2, net.distance(3, 1))
+        self.assertEqual(1, net.distance(3, 2))
+        self.assertEqual(0, net.distance(3, 3))
 
     @unittest.skip
     def test_graphviz(self):

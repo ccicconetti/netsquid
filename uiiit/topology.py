@@ -50,6 +50,10 @@ class Topology:
         # Lazy-initialized data structure for string representation
         self._str_repr = None
 
+        # Lazy-initialized next-hop and distance matrices.
+        self._nexthop_matrix = None
+        self._distance_matrix = None
+
         # The graph stored as a dictionary where:
         # key: the node identifier (u)
         # value: all the nodes that have a directed edge towards u
@@ -354,8 +358,20 @@ class Topology:
 
         return (prev, dist)
 
+    def next_hop(self, src, dst):
+        """Return the next hop on src to reach dst."""
+
+        self._create_nexthop_matrix()
+        return self._nexthop_matrix[dst][src]
+
+    def distance(self, src, dst):
+        """Return the distance, in hops, from src to dst."""
+
+        self._create_nexthop_matrix()
+        return self._distance_matrix[dst][src]
+
     def save_dot(self, dotfilename):
-        "Save the current network to a graph using Graphviz"
+        """Save the current network to a graph using Graphviz."""
 
         with open('{}.dot'.format(dotfilename), 'w') as dotfile:
             dotfile.write('digraph G {\n')
@@ -447,3 +463,15 @@ class Topology:
                     self._incoming_id[u] = dict()
                 self._incoming_id[u][v] = id
                 id += 1
+
+    def _create_nexthop_matrix(self):
+        if self._nexthop_matrix is not None:
+            assert self._distance_matrix is not None
+            return
+            
+        self._nexthop_matrix = dict()
+        self._distance_matrix = dict()
+
+        for u in self._graph.keys():
+            self._nexthop_matrix[u], self._distance_matrix[u] = self.spt(u)
+    
