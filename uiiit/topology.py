@@ -123,6 +123,8 @@ class Topology:
             for [u, v] in edges:
                 if u not in self._graph:
                     self._graph[u] = set()
+                if v not in self._graph:
+                    self._graph[v] = set()
                 self._graph[u].add(v)
 
             self.num_nodes = len(self._graph)
@@ -409,7 +411,7 @@ class Topology:
         edges = []
         for u, neigh in self._graph.items():
             for v in neigh:
-                if u in self._graph[v]:
+                if v in self._graph and u in self._graph[v]:
                     edges.append([u, v])
                     edges.append([v, u])
                     nodes_kept.add(u)

@@ -312,6 +312,50 @@ Edges: (5):
         with self.assertRaises(KeyError):
             _ = net_bi.get_id_by_name('C')
 
+    def test_copy_names_bigger(self):
+
+        full = Topology("grid", size=3)
+        names_list = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I']
+        names_dict = dict()
+        for i in range(len(names_list)):
+            names_dict[i] = names_list[i]
+        full.assign_names(names_dict)
+
+        uni = Topology("edges", edges=[
+            [0, 1],
+            [0, 3],
+            [1, 0],
+            [1, 2],
+            [1, 4],
+            [3, 0],
+            [3, 4],
+            [3, 6],
+            [4, 1],
+            [4, 3],
+            [4, 5],
+            [4, 7],
+            [5, 2],
+            [5, 4],
+            [5, 8],
+            [6, 3],
+            [6, 7],
+            [7, 4],
+            [7, 6],
+            [7, 8],
+            [8, 7]
+        ])
+
+        uni.copy_names(full)
+
+        self.assertEqual(9, uni.num_nodes)
+        self.assertEqual(set(names_list), uni.node_names)
+
+        reduced = uni.extract_bidirectional()
+
+        self.assertEqual(8, reduced.num_nodes)
+        names_list.remove('C')
+        self.assertEqual(set(names_list), reduced.node_names)
+
     def test_nexthop_distance(self):
         net = Topology("edges", edges=self.edges_test)
 
