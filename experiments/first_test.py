@@ -74,14 +74,17 @@ class SwapProtocol(NodeProtocol):
             # Entangle the memory positions as specified by the oracle
             if self.node.name in self._oracle.mem_pos:
                 for item in self._oracle.mem_pos[self.node.name]:
-                    pos1, pos2 = item
+                    pos1, pos2, dst_name = item
                     logging.debug(f"{ns.sim_time():.1f}: {self.node.name} ready to swap by measuring on {pos1} and {pos2}")
-                    # self.node.qmemory.execute_program(self._program, qubit_mapping=[1, 0])
-                    # yield self.await_program(self.node.qmemory)
-                    # m, = self._program.output["m"]
-                    # m1, m2 = self._bsm_op_indices[m]
-                    # # Send result to right node on end
-                    # logging.debug(f"{ns.sim_time():.1f}: {self.node.name} sending corrections out")
+                    self.node.qmemory.execute_program(self._program, qubit_mapping=[pos1, pos2])
+                    yield self.await_program(self.node.qmemory)
+                    m, = self._program.output["m"]
+                    m1, m2 = self._bsm_op_indices[m]
+
+                    # Send result to one of the two parties creating the
+                    # end-to-end entanglement
+                    cchan = f'ccon{self._oracle.channel_id(self.node.name, dst_name)}'
+                    logging.debug(f"{ns.sim_time():.1f}: {self.node.name} sending corrections ({m1}, {m2}) to {dst_name} via {cchan}")
                     # self.node.ports["ccon_R"].tx_output(Message([m1, m2], path=0, timeslot=self.oracle.timeslot))
 
             # Pop all non-empty but unused memory positions
@@ -99,6 +102,18 @@ class Oracle(Protocol):
     app : `uiiit.traffic.Application`
         The application that selects the nodes wishing to establish
         end-to-end entanglement timeslot by timeslot.
+
+    Properties
+    ----------
+    timeslot : int
+        The current timeslot, counting from 0.
+    mem_pos : dist
+        A dictionary containing the outcome of the routing algorithm.
+        For each element, the key is the name of the node that has to swap
+        two qubits in its internal memory; the value is a list of tuples, where
+        the first two items hold the identifiers of the memory positions that
+        have to be swapped and the third item is the name of the node to which
+        the corrections have to be sent.
 
     """
     def __init__(self, network, topology, app):
@@ -142,6 +157,9 @@ class Oracle(Protocol):
         if self._pending_nodes:
             return
 
+        # remove previous entanglement data structure
+        self.mem_pos.clear()
+
         # Create a new graph with only the edges where entanglement has succeeded
         graph_uni = Topology("edges", edges=self._edges)
         graph_uni.copy_names(self._topology)
@@ -157,13 +175,13 @@ class Oracle(Protocol):
         alice = graph_bi.get_id_by_name(pairs[0][0])
         bob = graph_bi.get_id_by_name(pairs[0][1])
         prev, _ = graph_bi.spt(alice)
-        if prev[bob] is not None:
-            # remove previous entanglement data structure
-            self.mem_pos.clear()
+        if prev[bob] is None:
+            logging.debug(f"timeslot #{self.timeslot}, no way to create e2e entanglement between {pairs[0][0]} and {pairs[0][1]}")
 
+        else:
             # there is a path between alice and bob
             swap_nodes = Topology.traversing(prev, bob, alice)
-            logging.debug(f"timeslot #{self.timeslot}, path {bob}, {', '.join([str(x) for x in swap_nodes])}, {alice}")
+            # logging.debug(f"timeslot #{self.timeslot}, path {bob}, {', '.join([str(x) for x in swap_nodes])}, {alice}")
 
             for i in range(len(swap_nodes)):
                 cur = swap_nodes[i]
@@ -171,12 +189,15 @@ class Oracle(Protocol):
                 nxt = alice if i == (len(swap_nodes)-1) else swap_nodes[i+1]
                 prv_pos = self._topology.incoming_id(cur, prv)
                 nxt_pos = self._topology.incoming_id(cur, nxt)
-                logging.debug(f"timeslot #{self.timeslot}, on node {cur} entangle node {prv} (mem pos {prv_pos}) and node {nxt} (mem pos {nxt_pos})")
+                logging.debug((f"timeslot #{self.timeslot}, e2e entanglement between {pairs[0][0]} and {pairs[0][1]}: "
+                               f"on node {cur} entangle node {prv} (mem pos {prv_pos}) and node {nxt} (mem pos {nxt_pos})"))
 
                 cur_name = self._topology.get_name_by_id(cur)
                 if cur not in self.mem_pos:
                     self.mem_pos[cur_name] = []
-                self.mem_pos[cur_name].append([prv_pos, nxt_pos])
+                self.mem_pos[cur_name].append([
+                    prv_pos, nxt_pos,
+                    self._topology.get_name_by_id(bob)])
 
         # Notify all nodes that they can proceed
         self.send_signal(Signals.SUCCESS)
@@ -184,8 +205,33 @@ class Oracle(Protocol):
         # This is a new timeslot
         self.timeslot += 1
 
+        # Clear the edges with successful entanglement
+        self._edges.clear()
+
         # Wait for all nodes again
         self._pending_nodes = set(self._topology.node_names)
+
+    def channel_id(self, src, dst):
+        """Return the channel identifier where to send a message.
+
+        Parameters
+        ----------
+        src : str
+            Name of the current node that will send the message.
+        dst : str
+            Name of the destination node.
+        
+        Returns
+        -------
+        int
+            The identifier of the channel where to send the message.
+        
+        """
+
+        src_id = self._topology.get_id_by_name(src)
+        dst_id = self._topology.get_id_by_name(dst)
+        nxt_id = self._topology.next_hop(src_id, dst_id)
+        return self._topology.incoming_id(src_id, nxt_id)
         
     def set_src_node(self, node):
         logging.debug(f"{ns.sim_time():.1f}: {self.name} {node.name} is the SRC node")
