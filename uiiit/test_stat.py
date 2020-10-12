@@ -61,5 +61,23 @@ class TestStat(unittest.TestCase):
         with self.assertRaises(KeyError):
             stat.get_all("m2")
 
+    def test_return_metrics(self):
+        stat = Stat()
+
+        self.assertEqual(set(), stat.count_metrics())
+        self.assertEqual(set(), stat.point_metrics())
+
+        stat.add("m1", 1)
+
+        self.assertEqual(set(), stat.count_metrics())
+        self.assertEqual({"m1"}, stat.point_metrics())
+
+        stat.add("m2", 1)
+        stat.count("m3", 1)
+        stat.count("m4", 1)
+
+        self.assertEqual({"m3", "m4"}, stat.count_metrics())
+        self.assertEqual({"m1", "m2"}, stat.point_metrics())
+
 if __name__ == '__main__':
     unittest.main()

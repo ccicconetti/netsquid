@@ -45,6 +45,16 @@ class Stat:
             return self._data[metric]
         raise KeyError(f'Unknown metric {metric}')
 
+    def count_metrics(self):
+        """Return all the count metrics."""
+
+        return set(self._counters.keys())
+
+    def point_metrics(self):
+        """Return all the point metrics."""
+
+        return set(self._data.keys())
+
     def count(self, metric, value):
         if metric in self._data:
             raise KeyError(f'Metric {metric} already used')
