@@ -6,7 +6,6 @@ import numpy as np
 import random
 
 from netsquid.nodes import Node, Network, Connection
-from netsquid.examples.teleportation import ClassicalConnection
 
 from uiiit.qconnection import ClassicalConnection, EntanglingConnection
 
