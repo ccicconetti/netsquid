@@ -385,6 +385,15 @@ class Topology:
         self._create_nexthop_matrix()
         return self._distance_matrix[dst][src]
 
+    def diameter(self):
+        """Return the maximum distance between any two nodes."""
+
+        self._create_nexthop_matrix()
+        diameter = 0
+        for _, neigh in self._distance_matrix.items():
+            diameter = max(diameter, max(neigh.values()))
+        return diameter
+
     def save_dot(self, dotfilename):
         """Save the current network to a graph using Graphviz."""
 

@@ -59,12 +59,15 @@ Edges: (5):
 
         net1 = Topology("chain", size=1)
         self.assertEqual(1, net1.num_nodes)
+        self.assertEqual(0, net1.diameter())
 
         net2 = Topology("chain", size=2)
         self.assertEqual(2, net2.num_nodes)
+        self.assertEqual(1, net2.diameter())
 
         net5 = Topology("chain", size=5)
         self.assertEqual(5, net5.num_nodes)
+        self.assertEqual(4, net5.diameter())
 
         (prev, dist) = net5.spt(1)
         self.assertEqual({0: 1, 1: None, 2: 1, 3: 2, 4: 3}, prev)
@@ -100,9 +103,11 @@ Edges: (5):
         net1 = Topology("grid", size=1)
         self.assertEqual(1, net1.num_nodes)
         self.assertEqual("{'0': set()}", str(net1))
+        self.assertEqual(0, net1.diameter())
 
         net4 = Topology("grid", size=4)
         self.assertEqual(16, net4.num_nodes)
+        self.assertEqual(6, net4.diameter())
 
         other_nodes = list(range(16))
         for u in [0, 3, 12, 15]:
@@ -149,6 +154,7 @@ Edges: (5):
             self.assertEqual({0, 2, 3}, net.neigh(1))
             self.assertEqual({0, 1, 3}, net.neigh(2))
             self.assertEqual({1, 2}, net.neigh(3))
+            self.assertEqual(2, net.diameter())
 
     def test_edges(self):
         with self.assertRaises(EmptyTopology):
@@ -157,6 +163,8 @@ Edges: (5):
         net = Topology("edges", edges=self.edges_test)
 
         self.assertEqual(4, net.num_nodes)
+
+        self.assertEqual(3, net.diameter())
 
         self.assertEqual({3}, net.neigh(0))
         self.assertEqual({0}, net.neigh(1))
