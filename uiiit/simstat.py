@@ -85,3 +85,21 @@ def plot_single(x_values, x_label, stats, metric, func, block=True):
     ax.grid()
 
     plt.show(block=block)
+
+def boxplot_single(x_values, x_label, stats, metric, block=True):
+    if len(x_values) != len(stats):
+        raise ValueError('Inconsistent sizes')
+
+    _, ax = plt.subplots()
+    y_values = [] 
+    for stat in stats:
+        y_values.append(stat.get_all(metric))
+    ax.boxplot(y_values)
+
+    print(y_values)
+
+    ax.set(xlabel=x_label, ylabel=metric)
+    ax.set_xticklabels(x_values)
+    ax.grid()
+
+    plt.show(block=block)
