@@ -4,7 +4,7 @@ __license__ = "MIT"
 
 import unittest
 import tempfile
-from topology import Topology
+from topology import Topology, EmptyTopology
 
 class TestTopology(unittest.TestCase):
     brite_topo = \
@@ -51,7 +51,7 @@ Edges: (5):
             Topology("unknown-topology")
 
     def test_chain(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaises(EmptyTopology):
             Topology("chain", size=0)
 
         with self.assertRaises(ValueError):
@@ -91,7 +91,7 @@ Edges: (5):
             net5.biedges())
 
     def test_grid(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaises(EmptyTopology):
             Topology("grid", size=0)
 
         with self.assertRaises(ValueError):
@@ -151,7 +151,7 @@ Edges: (5):
             self.assertEqual({1, 2}, net.neigh(3))
 
     def test_edges(self):
-        with self.assertRaises(ValueError):
+        with self.assertRaises(EmptyTopology):
             _ = Topology("edges")
 
         net = Topology("edges", edges=self.edges_test)
@@ -171,9 +171,6 @@ Edges: (5):
         self.assertEqual([1, 2], Topology.traversing(prev, 0, 3)) 
 
     def test_edges_sparse(self):
-        with self.assertRaises(ValueError):
-            _ = Topology("edges")
-
         net = Topology("edges", edges=self.edges_test_sparse)
 
         self.assertEqual(4, net.num_nodes)
@@ -312,8 +309,13 @@ Edges: (5):
         with self.assertRaises(KeyError):
             _ = net_bi.get_id_by_name('C')
 
-    def test_copy_names_bigger(self):
+    def test_extract_bidirectional_empty(self):
+        uni = Topology("edges", edges=[[0, 1], [2, 1]])
 
+        with self.assertRaises(EmptyTopology):
+            _ = uni.extract_bidirectional()
+
+    def test_copy_names_bigger(self):
         full = Topology("grid", size=3)
         names_list = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I']
         names_dict = dict()

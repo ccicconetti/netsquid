@@ -7,6 +7,10 @@ __all__ = [
     "Topology"
     ]
 
+class EmptyTopology(Exception):
+    def __init__(self):
+        self.message = "Empty graph"
+
 class Topology:
     """Topology of a network of nodes.
     
@@ -35,6 +39,8 @@ class Topology:
     ------
     ValueError
         If the type is not supported.
+    EmptyTopology
+        If the graph would be empty.
     """
     def __init__(self, type, size=1, in_file_name="", edges=[]):
         # Lazy-initialized list of the (unidirectional) edges
@@ -65,7 +71,9 @@ class Topology:
 
         # Create the graph
         if type == "chain":
-            if size < 1:
+            if size == 0:
+                raise EmptyTopology()
+            elif size < 1:
                 raise ValueError(f'Invalid size value for chain: {size}')
             self.num_nodes = size
             for u in range(size):
@@ -77,7 +85,9 @@ class Topology:
                     self._graph[u] = set([u-1, u+1])
 
         elif type == "grid":
-            if size < 1:
+            if size == 0:
+                raise EmptyTopology()
+            elif size < 1:
                 raise ValueError(f'Invalid size value for grid: {size}')
             self.num_nodes = size * size
 
@@ -114,11 +124,14 @@ class Topology:
                         self._graph[v] = set()
                     self._graph[v].add(u)
 
+                if not self._graph:
+                    raise EmptyTopology()
+
                 self.num_nodes = len(self._graph)
 
         elif type == "edges":
             if not edges:
-                raise ValueError("Invalid empty set of edges")
+                raise EmptyTopology()
 
             for [u, v] in edges:
                 if u not in self._graph:
@@ -405,6 +418,11 @@ class Topology:
 
         If the original graph has names assigned to nodes, they are re-used.
 
+        Raises
+        ------
+        EmptyTopology
+            The reduced graph is empty.
+
         """
 
         nodes_kept = set()
@@ -417,6 +435,9 @@ class Topology:
                     nodes_kept.add(u)
                     nodes_kept.add(v)
 
+        if not edges:
+            raise EmptyTopology()
+        
         topo = Topology("edges", edges=edges)
         
         node_names = dict()
