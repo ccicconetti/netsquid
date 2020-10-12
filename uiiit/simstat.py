@@ -29,7 +29,7 @@ class Stat:
             return self._counters[metric][1]
         elif metric in self._data:
             return len(self._data[metric])
-        raise KeyError(f'Unknown metric {metric}')
+        return 0
 
     def get_avg(self, metric):
         if metric in self._counters:
