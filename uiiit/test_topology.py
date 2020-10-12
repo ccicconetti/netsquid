@@ -413,6 +413,20 @@ Edges: (5):
         self.assertEqual(1, net.distance(3, 2))
         self.assertEqual(0, net.distance(3, 3))
 
+    def test_longest_path(self):
+        self.assertEqual(7, Topology("chain", 8).longest_path())
+        self.assertEqual(8, Topology("grid", 3).longest_path())
+        self.assertEqual(15, Topology("grid", 4).longest_path())
+
+        edges = []
+        for i in range(0, 5):
+            edges.append([i, i+1])
+            edges.append([i+1, i])
+        edges.append([0, 5])
+        self.assertEqual(5, Topology("edges", edges=edges).longest_path())
+        edges.append([5, 0])
+        self.assertEqual(5, Topology("edges", edges=edges).longest_path())
+
     @unittest.skip
     def test_graphviz(self):
         Topology("grid", size=4).save_dot("mygraph")

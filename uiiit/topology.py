@@ -335,7 +335,7 @@ class Topology:
 
         return self._graph[node]
 
-    def spt(self, source):
+    def spt(self, source, weight=1):
         """Compute the shortest-path tree to source
         """
 
@@ -344,7 +344,7 @@ class Topology:
         prev = {}
         for v in self._graph.keys():
             Q.append(v)
-            dist[v] = 100000
+            dist[v] = float('inf')
             prev[v] = None
 
         if source not in dist:
@@ -366,7 +366,7 @@ class Topology:
                 if v not in self._graph[u]:
                     continue
                 # v is in Q and a neighbor of u
-                alt = dist[u] + 1
+                alt = dist[u] + weight
                 if alt < dist[v]:
                     dist[v] = alt
                     prev[v] = u
@@ -393,6 +393,16 @@ class Topology:
         for _, neigh in self._distance_matrix.items():
             diameter = max(diameter, max(neigh.values()))
         return diameter
+
+    def longest_path(self):
+        """Return the length longest possible acyclic graph."""
+
+        min_path = float('inf')
+        for u in self._graph.keys():
+            _, dist = self.spt(u, weight=-1)
+            min_path = min(min_path, min(dist.values()))
+
+        return -min_path
 
     def save_dot(self, dotfilename):
         """Save the current network to a graph using Graphviz."""
