@@ -451,6 +451,22 @@ Edges: (5):
         edges.append([5, 0])
         self.assertEqual(5, Topology("edges", edges=edges).longest_path())
 
+    def test_farthest_nodes(self):
+        # bi-directional ring
+        net = Topology("ring", size=4)
+
+        self.assertEqual({(2, 0), (0, 2), (1, 3), (3, 1)}, net.farthest_nodes())
+
+        # uni-directional ring
+        edges = []
+        num_nodes = 4
+        for i in range(num_nodes):
+            prev = i - 1 if i > 0 else num_nodes - 1
+            edges.append([i, prev])
+        net_uni = Topology("edges", edges=edges)
+
+        self.assertEqual({(0, 1), (1, 2), (2, 3), (3, 0)}, net_uni.farthest_nodes())
+
     @unittest.skip
     def test_graphviz(self):
         Topology("grid", size=4).save_dot("mygraph")

@@ -397,6 +397,19 @@ class Topology:
             diameter = max(diameter, max(neigh.values()))
         return diameter
 
+    def farthest_nodes(self):
+        """Return the set of pairs of nodes that are farthest from one another.
+        """
+
+        diameter = self.diameter() # also initializes self._distance_matrix
+        ret = set()
+        for u, neigh in self._distance_matrix.items():
+            for v, dist in neigh.items():
+                if dist == diameter:
+                    ret.add((u, v))
+        assert ret
+        return ret
+
     def longest_path(self):
         """Return the length longest possible acyclic graph."""
 
