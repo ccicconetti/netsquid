@@ -16,12 +16,12 @@ class Topology:
     
     Parameters
     ----------
-    type : { 'chain', 'grid', 'brite', 'edges' }
+    type : { 'chain', 'grid', 'ring', 'brite', 'edges' }
         Type of the network to create.
     size : int, optional
         The actual meaning depends on the network type: 
         with "grid", this is the number of nodes on any side of the square;
-        with "chain", it's the size of the chain.
+        with "chain" and "ring" it's the number of nodes.
         It is unused with other topology types.
     in_file_name : str, optional
         Name of the input file. Only used with a "brite" topology.
@@ -70,7 +70,7 @@ class Topology:
         self._id_by_names = None
 
         # Create the graph
-        if type == "chain":
+        if type == "chain" or type == "ring":
             if size == 0:
                 raise EmptyTopology()
             elif size < 1:
@@ -83,6 +83,9 @@ class Topology:
                     self._graph[u] = set([size - 2])
                 else:
                     self._graph[u] = set([u-1, u+1])
+            if type == "ring":
+                self._graph[0].add(size-1)
+                self._graph[size-1].add(0)
 
         elif type == "grid":
             if size == 0:

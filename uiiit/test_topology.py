@@ -93,6 +93,30 @@ Edges: (5):
             [[0, 1], [1, 2], [2, 3], [3, 4]],
             net5.biedges())
 
+    def test_ring(self):
+        with self.assertRaises(EmptyTopology):
+            Topology("ring", size=0)
+
+        with self.assertRaises(ValueError):
+            Topology("ring", size=-1)
+
+        net1 = Topology("ring", size=1)
+        self.assertEqual(1, net1.num_nodes)
+        self.assertEqual(0, net1.diameter())
+
+        net2 = Topology("ring", size=2)
+        self.assertEqual(2, net2.num_nodes)
+        self.assertEqual(1, net2.diameter())
+
+        net5 = Topology("ring", size=5)
+        self.assertEqual(5, net5.num_nodes)
+        self.assertEqual(2, net5.diameter())
+        self.assertEqual({1, 4}, net5.neigh(0))
+        self.assertEqual({0, 2}, net5.neigh(1))
+        self.assertEqual({1, 3}, net5.neigh(2))
+        self.assertEqual({2, 4}, net5.neigh(3))
+        self.assertEqual({3, 0}, net5.neigh(4))
+
     def test_grid(self):
         with self.assertRaises(EmptyTopology):
             Topology("grid", size=0)
