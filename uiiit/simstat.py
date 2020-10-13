@@ -79,7 +79,7 @@ def plot_single(x_values, x_label, stats, metric, func, block=True):
     y_values = [] 
     for stat in stats:
         y_values.append(func(stat, metric))
-    ax.plot(x_values, y_values)
+    ax.plot(x_values, y_values, marker='o')
 
     ax.set(xlabel=x_label, ylabel=metric)
     ax.grid()
@@ -94,12 +94,14 @@ def boxplot_single(x_values, x_label, stats, metric, block=True):
     y_values = [] 
     for stat in stats:
         y_values.append(stat.get_all(metric))
-    ax.boxplot(y_values)
-
-    print(y_values)
+    ax.boxplot(y_values, positions=x_values, notch=True)
 
     ax.set(xlabel=x_label, ylabel=metric)
-    ax.set_xticklabels(x_values)
     ax.grid()
+
+    avg_values = [] 
+    for stat in stats:
+        avg_values.append(stat.get_avg(metric))
+    ax.plot(x_values, avg_values)
 
     plt.show(block=block)
