@@ -5,9 +5,12 @@ import logging
 import numpy as np
 import random
 
-from netsquid.nodes import Node, Network, Connection
+from netsquid.nodes import Node, Network
+from netsquid.nodes.connections import DirectConnection
+from netsquid.components.cchannel import ClassicalChannel
+from netsquid.components.models.delaymodels import FibreDelayModel
 
-from uiiit.qconnection import ClassicalConnection, EntanglingConnection
+from uiiit.qconnection import EntanglingConnection
 
 __all__ = [
     "QNetworkUniform"
@@ -96,7 +99,15 @@ class QNetworkUniform:
             rhs_node.ports[f"qcon{rhs_id}"].forward_input(rhs_node.qmemory.ports[f"qin{rhs_id}"])
 
             # Create a classical connection between the two nodes
-            cconn = ClassicalConnection(name=f"cconn_{u}-{v}", length=self._node_distance)
+            # cconn = ClassicalConnection(name=f"cconn_{u}-{v}", length=self._node_distance)
+            cconn = DirectConnection(
+                name=f"cconn_{u}-{v}",
+                channel_AtoB=ClassicalChannel(
+                    "Channel_A2B", length=self._node_distance,
+                    models={"delay_model": FibreDelayModel()}),
+                channel_BtoA=ClassicalChannel(
+                    "Channel_B2A", length=self._node_distance,
+                    models={"delay_model": FibreDelayModel()}))
             network.add_connection(
                 lhs_node, rhs_node, connection=cconn, label="classical",
                 port_name_node1=f"ccon{lhs_id}", port_name_node2=f"ccon{rhs_id}")
