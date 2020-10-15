@@ -4,6 +4,7 @@
 import math
 import matplotlib
 import matplotlib.pyplot as plt
+import statsmodels.stats.api as sms
 
 __all__ = [
     "Stat",
@@ -91,25 +92,26 @@ class Stat:
         else:
             raise KeyError(f'Unknown metric: {metric}')
 
-def plot_all(x_values, xlabel, stats, block=False):
+def plot_all(x_values, xlabel, stats, metrics, block=False):
     if len(x_values) != len(stats):
         raise ValueError('Inconsistent sizes')
 
-    nplots = len(stats[0].count_metrics()) + len(stats[0].point_metrics())
+    all_metrics = metrics if metrics \
+        else sorted(list(stats[0].count_metrics()) + list(stats[0].point_metrics()))
+
+    nplots = len(all_metrics)
 
     ncols = int(math.ceil(math.sqrt(nplots)))
     nrows = 1 + (nplots - 1) // ncols
     assert ncols * nrows >= nplots
 
-    fig, axs = plt.subplots(nrows, ncols)
+    fig, axs = plt.subplots(nrows, ncols, squeeze=False)
 
     counter = 0
-    count_metrics = list(stats[0].count_metrics())
-    point_metrics = list(stats[0].point_metrics())
-    for metric in count_metrics + point_metrics:
+    for metric in all_metrics:
         xpos = counter // ncols
         ypos = counter % ncols
-        if metric in count_metrics:
+        if metric in stats[0].count_metrics():
             plot_single(x_values, xlabel, stats, metric, Stat.get_sum, axs[xpos][ypos])
         else:
             boxplot_single(x_values, xlabel, stats, metric, axs[xpos][ypos])
@@ -118,26 +120,70 @@ def plot_all(x_values, xlabel, stats, block=False):
     fig.tight_layout()
     plt.show(block=block)
 
+def plot_all_same(x_values, xlabel, ylabel, stats, metrics, block=False):
+    if not metrics:
+        raise ValueError('Empty set of metrics to plot')
+    if len(x_values) != len(stats):
+        raise ValueError('Inconsistent sizes')
+
+    _, ax = plt.subplots()
+
+    if metrics[0] in stats[0].count_metrics():
+        for metric in metrics:
+            plot_single(x_values, xlabel, stats, metric, Stat.get_sum, ax)
+        ax.set_ylabel(ylabel)
+        ax.grid()
+    else:
+        plot_multi(x_values, xlabel, ylabel, stats, metrics, ax)
+
+    plt.legend(loc='best')
+
+    plt.show(block=block)
+
+def plot_multi(x_values, xlabel, ylabel, stats, metrics, ax):
+    ax.set(xlabel=xlabel, ylabel=ylabel)
+    ax.grid()
+
+    for metric in sorted(metrics):
+        x_values_with_data = []
+        y_values = []
+        e_values = []
+        for stat,x_value in zip(stats, x_values):
+            if metric not in stat.point_metrics():
+                continue
+            x_values_with_data.append(x_value)
+            y_values.append(stat.get_avg(metric))
+            if stat.get_count(metric) >= 2:
+                stat = sms.DescrStatsW(stat.get_all(metric))
+                ci = stat.tconfint_mean(alpha=0.05)
+                e_values.append(ci[1] - ci[0])
+            else:
+                e_values.append(0)
+
+        ax.errorbar(x_values_with_data, y_values, e_values, marker='x', label=metric, capsize=5)
+
 def plot_single(x_values, xlabel, stats, metric, func, ax):
+    ax.set(xlabel=xlabel, ylabel=metric)
+    ax.grid()
 
     y_values = [] 
     for stat in stats:
         y_values.append(func(stat, metric))
-    ax.plot(x_values, y_values, marker='o')
 
-    ax.set(xlabel=xlabel, ylabel=metric)
-    ax.grid()
+    ax.plot(x_values, y_values, marker='x', label=metric)
 
 def boxplot_single(x_values, xlabel, stats, metric, ax):
-    y_values = [] 
-    for stat in stats:
-        y_values.append(stat.get_all(metric))
-    ax.boxplot(y_values, positions=x_values, notch=1, sym='k+')
-
     ax.set(xlabel=xlabel, ylabel=metric)
     ax.grid()
 
+    y_values = []
+    x_values_with_data = []
     avg_values = [] 
-    for stat in stats:
-        avg_values.append(stat.get_avg(metric))
-    ax.plot(x_values, avg_values)
+    for stat, x_value in zip(stats, x_values):
+        if metric in stat.point_metrics():
+            y_values.append(stat.get_all(metric))
+            x_values_with_data.append(x_value)
+            avg_values.append(stat.get_avg(metric))
+
+    ax.boxplot(y_values, positions=x_values_with_data, notch=1, sym='k+')
+    ax.plot(x_values_with_data, avg_values, label=metric)
