@@ -79,5 +79,29 @@ class TestStat(unittest.TestCase):
         self.assertEqual({"m3", "m4"}, stat.count_metrics())
         self.assertEqual({"m1", "m2"}, stat.point_metrics())
 
+    def test_scale(self):
+        stat = Stat()
+        values = [1, 2, -1.5, 0.5]
+        for v in values:
+            stat.add("m1", v)
+        self.assertEqual([1, 2, -1.5, 0.5], stat.get_all("m1"))
+
+        stat.scale("m1", 2)
+        self.assertEqual([2, 4, -3, 1], stat.get_all("m1"))
+
+        stat.count("m2", 1)
+        stat.count("m2", 2)
+        stat.count("m2", 3)
+        self.assertEqual(6, stat.get_sum("m2"))
+        self.assertEqual(3, stat.get_count("m2"))
+
+        stat.scale("m2", 0.5)
+        self.assertEqual(3, stat.get_sum("m2"))
+        self.assertEqual(3, stat.get_count("m2"))
+
+        with self.assertRaises(KeyError):
+            stat.scale("m3", 1)
+
+
 if __name__ == '__main__':
     unittest.main()

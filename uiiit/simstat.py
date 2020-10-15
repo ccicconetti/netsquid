@@ -1,6 +1,7 @@
 """This module specifies classes that help with the collection of statistics.
 """
 
+import math
 import matplotlib
 import matplotlib.pyplot as plt
 
@@ -71,37 +72,72 @@ class Stat:
             self._data[metric] = []
         self._data[metric].append(value)
 
-def plot_single(x_values, x_label, stats, metric, func, block=True):
+    def scale(self, metric, value):
+        """Apply a constant scale factor to all values of a metric.
+
+        Parameters
+        ----------
+        metric : string
+            The metric name
+        value : float
+            The scale factor to apply
+        
+        """
+
+        if metric in self._counters:
+            self._counters[metric][0] = self._counters[metric][0] * value
+        elif metric in self._data:
+            self._data[metric] = [x * value for x in self._data[metric]]
+        else:
+            raise KeyError(f'Unknown metric: {metric}')
+
+def plot_all(x_values, xlabel, stats, block=False):
     if len(x_values) != len(stats):
         raise ValueError('Inconsistent sizes')
 
-    _, ax = plt.subplots()
+    nplots = len(stats[0].count_metrics()) + len(stats[0].point_metrics())
+
+    ncols = int(math.ceil(math.sqrt(nplots)))
+    nrows = 1 + (nplots - 1) // ncols
+    assert ncols * nrows >= nplots
+
+    fig, axs = plt.subplots(nrows, ncols)
+
+    counter = 0
+    count_metrics = list(stats[0].count_metrics())
+    point_metrics = list(stats[0].point_metrics())
+    for metric in count_metrics + point_metrics:
+        xpos = counter // ncols
+        ypos = counter % ncols
+        if metric in count_metrics:
+            plot_single(x_values, xlabel, stats, metric, Stat.get_sum, axs[xpos][ypos])
+        else:
+            boxplot_single(x_values, xlabel, stats, metric, axs[xpos][ypos])
+        counter += 1
+
+    fig.tight_layout()
+    plt.show(block=block)
+
+def plot_single(x_values, xlabel, stats, metric, func, ax):
+
     y_values = [] 
     for stat in stats:
         y_values.append(func(stat, metric))
     ax.plot(x_values, y_values, marker='o')
 
-    ax.set(xlabel=x_label, ylabel=metric)
+    ax.set(xlabel=xlabel, ylabel=metric)
     ax.grid()
 
-    plt.show(block=block)
-
-def boxplot_single(x_values, x_label, stats, metric, block=True):
-    if len(x_values) != len(stats):
-        raise ValueError('Inconsistent sizes')
-
-    _, ax = plt.subplots()
+def boxplot_single(x_values, xlabel, stats, metric, ax):
     y_values = [] 
     for stat in stats:
         y_values.append(stat.get_all(metric))
-    ax.boxplot(y_values, positions=x_values, notch=True)
+    ax.boxplot(y_values, positions=x_values, notch=1, sym='k+')
 
-    ax.set(xlabel=x_label, ylabel=metric)
+    ax.set(xlabel=xlabel, ylabel=metric)
     ax.grid()
 
     avg_values = [] 
     for stat in stats:
         avg_values.append(stat.get_avg(metric))
     ax.plot(x_values, avg_values)
-
-    plt.show(block=block)
