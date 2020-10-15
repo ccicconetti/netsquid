@@ -74,9 +74,9 @@ class QNetworkUniform:
             lhs_node, rhs_node = nodes[u], nodes[v]
             lhs_id, rhs_id = topology.incoming_id(u, v), topology.incoming_id(v, u)
 
-            logging.info((f"creating quantum and classical connections between "
-                          f"{lhs_node.name} (port {lhs_id}) and "
-                          f"{rhs_node.name} (port {rhs_id})"))
+            logging.debug((f"creating quantum and classical connections between "
+                           f"{lhs_node.name} (port {lhs_id}) and "
+                           f"{rhs_node.name} (port {rhs_id})"))
 
             # Create a bidirectional quantum connection between the two nodes
             # that also emits periodically entangled qubits
