@@ -168,6 +168,11 @@ class TestMultiStat(unittest.TestCase):
         mstat = MultiStat(stats)        
         self.assertEqual(10, len(mstat.all_confs()))
 
+        for conf in stats:
+            self.assertTrue(conf in mstat)
+
+        self.assertFalse(Conf(nonexisting=42) in mstat)
+
     def test_multistat_add(self):
         mstat = MultiStat()
         stat1 = make_simple_stat()

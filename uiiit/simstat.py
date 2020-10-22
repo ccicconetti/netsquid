@@ -239,6 +239,11 @@ class MultiStat:
 
         return self._stats[str(conf)]
 
+    def __contains__(self, conf):
+        """Return True if the configuration is already in the collection."""
+
+        return str(conf) in self._stats
+
     def all_confs(self):
         """Return all the configurations stored in the collection."""
 
