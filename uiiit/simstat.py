@@ -174,8 +174,11 @@ class MultiStat:
     """A collection of Stat objects that can be serialized/deserialized.
 
     """
-    def __init__(self):
+    def __init__(self, initial=None):
         self._stats = dict()
+        if initial:
+            for stat in initial:
+                self.add(stat)
 
     def add(self, stat):
         """Add a stat object to the collection. Do nothing if already present.

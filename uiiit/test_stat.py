@@ -144,6 +144,17 @@ class TestStat(unittest.TestCase):
         self.assertEqual(content1, content2)
 
 class TestMultiStat(unittest.TestCase):
+    def test_multistat_ctor(self):
+        mstat_empty = MultiStat()
+        self.assertEqual(0, len(mstat_empty.all_confs()))
+
+        stats = []
+        for i in range(10):
+            stats.append(make_simple_stat(counter=i))
+        
+        mstat = MultiStat(stats)        
+        self.assertEqual(10, len(mstat.all_confs()))
+
     def test_multistat_add(self):
         mstat = MultiStat()
         stat1 = make_simple_stat()
