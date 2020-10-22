@@ -176,18 +176,23 @@ class TestMultiStat(unittest.TestCase):
         with self.assertRaises(KeyError):
             mstat[conf1]
 
+        self.assertEqual(0, len(mstat))
+
         # add new item
         self.assertTrue(mstat.add(stat1))
         self.assertEqual({'mc'}, mstat[conf1].count_metrics())
+        self.assertEqual(1, len(mstat))
 
         # add it again
         self.assertFalse(mstat.add(stat1))
+        self.assertEqual(1, len(mstat))
 
         # add a new one
         stat2 = make_simple_stat(new_param=42)
         conf2 = Conf(**stat2.conf().all_params())
         self.assertTrue(mstat.add(stat2))
         self.assertEqual({'mc'}, mstat[conf2].count_metrics())
+        self.assertEqual(2, len(mstat))
 
     def test_json(self):
         # create a collection

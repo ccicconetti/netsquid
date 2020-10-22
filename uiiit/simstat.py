@@ -244,6 +244,11 @@ class MultiStat:
 
         return set(self._stats.keys())
 
+    def __len__(self):
+        """Return the number of elements stored in the container."""
+
+        return len(self._stats)
+
     def json_dump(self, fp):
         """Serialize the content of the collection."""
 
