@@ -5,6 +5,7 @@ import json
 import math
 import matplotlib
 import matplotlib.pyplot as plt
+import os
 import statsmodels.stats.api as sms
 
 __all__ = [
@@ -32,6 +33,9 @@ class Conf:
 
     def all_params(self):
         return self._params
+
+    def compact(self):
+        return '.'.join([f'{k}={v}' for k, v in sorted(self._params.items())])
 
     def __repr__(self):
         return ', '.join([f'{k}: {v}' for k, v in sorted(self._params.items())])
@@ -170,6 +174,20 @@ class Stat:
         ret._counts = counts
         return ret
 
+    def export(self, path):
+        """Export the content to a set of files in the given path."""
+
+        base_name = self._conf.compact()
+
+        for metric_name, record in self._counts.items():
+            with open(f'{path}/{base_name}-{metric_name}.dat', 'w') as outfile:
+                outfile.write(f'{record[0]} {record[1]}\n')
+
+        for metric_name, values in self._points.items():
+            with open(f'{path}/{base_name}-{metric_name}.dat', 'w') as outfile:
+                for value in values:
+                    outfile.write(f'{value}\n')
+
 class MultiStat:
     """A collection of Stat objects that can be serialized/deserialized.
 
@@ -247,6 +265,30 @@ class MultiStat:
                 counts=content['counts']))
         return mstat
 
+    def export(self, path):
+        """Export all the `Stat` in the collection to text files.
+
+        Parameters
+        ----------
+        path : str
+            The directory that will store the files. If it does not exist,
+            it will be created. If it exists but it is not a directory, an
+            exception will be raised.
+
+        Raises
+        ------
+        FileExistsError
+            If the path exists but it is not a directory
+        """
+
+        if os.path.exists(path):
+            if not os.path.isdir(path):
+                raise FileExistsError(f'Path {path} exists but it is not a directory')
+        else:
+            os.mkdir(path)
+
+        for stat in self._stats.values():
+            stat.export(path)
 
 def plot_all(x_values, xlabel, stats, metrics, block=False):
     if len(x_values) != len(stats):

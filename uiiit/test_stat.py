@@ -2,7 +2,9 @@ __author__  = "Claudio Cicconetti"
 __version__ = "0.1.0"
 __license__ = "MIT"
 
+import os
 import unittest
+import shutil
 from io import StringIO
 from simstat import Conf, Stat, MultiStat
 
@@ -143,6 +145,17 @@ class TestStat(unittest.TestCase):
 
         self.assertEqual(content1, content2)
 
+    def test_export(self):
+        path = 'test_directory'
+        if os.path.exists(path):
+            shutil.rmtree(path)
+        os.mkdir(path)
+        stat = make_simple_stat()
+        stat.export(path)
+
+        self.assertTrue(os.path.exists(f'{path}/par1=42.par2=hello-mc.dat'))
+        self.assertTrue(os.path.exists(f'{path}/par1=42.par2=hello-mp.dat'))
+
 class TestMultiStat(unittest.TestCase):
     def test_multistat_ctor(self):
         mstat_empty = MultiStat()
@@ -191,6 +204,22 @@ class TestMultiStat(unittest.TestCase):
         io.seek(0)
         mstat_new = MultiStat.json_load(io)
         self.assertEqual(2, len(mstat_new.all_confs()))
+
+    def test_export(self):
+        path = 'test_directory'
+        if os.path.exists(path):
+            shutil.rmtree(path)
+
+        mstat = MultiStat()
+        mstat.add(make_simple_stat())
+        mstat.add(make_simple_stat(new_param=42))
+        mstat.export(path)
+
+        self.assertTrue(os.path.exists(f'{path}/new_param=42.par1=42.par2=hello-mc.dat'))
+        self.assertTrue(os.path.exists(f'{path}/new_param=42.par1=42.par2=hello-mp.dat'))
+        self.assertTrue(os.path.exists(f'{path}/par1=42.par2=hello-mc.dat'))
+        self.assertTrue(os.path.exists(f'{path}/par1=42.par2=hello-mp.dat'))
+
 
 if __name__ == '__main__':
     unittest.main()
