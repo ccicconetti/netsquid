@@ -218,6 +218,11 @@ class MultiStat:
 
         return self._stats[str(conf)]
 
+    def all_confs(self):
+        """Return all the configurations stored in the collection."""
+
+        return set(self._stats.keys())
+
     def json_dump(self, fp):
         """Serialize the content of the collection."""
 

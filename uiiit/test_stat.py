@@ -166,15 +166,20 @@ class TestMultiStat(unittest.TestCase):
         self.assertEqual({'mc'}, mstat[conf2].count_metrics())
 
     def test_json(self):
+        # create a collection
         mstat = MultiStat()
         mstat.add(make_simple_stat())
         mstat.add(make_simple_stat(new_param=42))
+        self.assertEqual(2, len(mstat.all_confs()))
+
+        # serialize it to JSON
         io = StringIO()
         mstat.json_dump(io)
 
+        # deserialize it from JSON to a new collection
         io.seek(0)
         mstat_new = MultiStat.json_load(io)
-
+        self.assertEqual(2, len(mstat_new.all_confs()))
 
 if __name__ == '__main__':
     unittest.main()
