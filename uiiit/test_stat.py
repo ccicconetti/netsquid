@@ -3,18 +3,21 @@ __version__ = "0.1.0"
 __license__ = "MIT"
 
 import unittest
-from simstat import Stat
+from io import StringIO
+from simstat import Conf, Stat, MultiStat
+
+def make_simple_stat(**kwargs):
+    stat = Stat(par1=42, par2="hello")
+    for k, v in kwargs.items():
+        stat.change_param(k, v)
+    stat.add("mp", 0.1)
+    stat.add("mp", -3.14)
+    stat.add("mp", 100)
+    stat.count("mc", 1)
+    stat.count("mc", 2)
+    return stat
 
 class TestStat(unittest.TestCase):
-    @staticmethod
-    def make_simple_stat():
-        stat = Stat(par1=42, par2="hello")
-        stat.add("mp", 0.1)
-        stat.add("mp", -3.14)
-        stat.add("mp", 100)
-        stat.count("mc", 1)
-        stat.count("mc", 2)
-        return stat
 
     def test_params(self):
         stat = Stat(par1="1", par2="0.5", par3="simple")
@@ -28,12 +31,12 @@ class TestStat(unittest.TestCase):
         self.assertEqual("par2: 0.5, par3: simple", str(stat))
 
     def test_eq(self):
-        stat1 = self.make_simple_stat()
+        stat1 = make_simple_stat()
 
         stat2 = Stat(par2="hello", par1=42)
         self.assertEqual(stat1, stat2)
 
-        stat3 = self.make_simple_stat()
+        stat3 = make_simple_stat()
         stat3.change_param(key='par3', value='newvalue')
         self.assertNotEqual(stat1, stat3)
 
@@ -129,16 +132,49 @@ class TestStat(unittest.TestCase):
             stat.scale("m3", 1)
 
     def test_content_dump_load(self):
-        stat1 = self.make_simple_stat()
+        stat1 = make_simple_stat()
         content1 = stat1.content_dump()
 
         stat2 = Stat.make_from_content(
-            params=content1['params'],
+            params=content1['conf'],
             points=content1['points'],
             counts=content1['counts'])
         content2 = stat2.content_dump()
 
-        self.assertEqual(content1, content2)  
+        self.assertEqual(content1, content2)
+
+class TestMultiStat(unittest.TestCase):
+    def test_multistat_add(self):
+        mstat = MultiStat()
+        stat1 = make_simple_stat()
+        conf1 = Conf(**stat1.conf().all_params())
+
+        with self.assertRaises(KeyError):
+            mstat[conf1]
+
+        # add new item
+        self.assertTrue(mstat.add(stat1))
+        self.assertEqual({'mc'}, mstat[conf1].count_metrics())
+
+        # add it again
+        self.assertFalse(mstat.add(stat1))
+
+        # add a new one
+        stat2 = make_simple_stat(new_param=42)
+        conf2 = Conf(**stat2.conf().all_params())
+        self.assertTrue(mstat.add(stat2))
+        self.assertEqual({'mc'}, mstat[conf2].count_metrics())
+
+    def test_json(self):
+        mstat = MultiStat()
+        mstat.add(make_simple_stat())
+        mstat.add(make_simple_stat(new_param=42))
+        io = StringIO()
+        mstat.json_dump(io)
+
+        io.seek(0)
+        mstat_new = MultiStat.json_load(io)
+
 
 if __name__ == '__main__':
     unittest.main()

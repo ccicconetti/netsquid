@@ -8,37 +8,75 @@ import matplotlib.pyplot as plt
 import statsmodels.stats.api as sms
 
 __all__ = [
+    "Conf",
     "Stat",
+    "MultiStat",
     ]
 
+class Conf:
+    """Experiment configuration."""
+    def __init__(self, **kwargs):
+        self._params = kwargs
+
+    def __getitem__(self, key):
+        return self._params[key]
+
+    def change_param(self, key, value):
+        self._params[key] = value
+    
+    def del_param(self, key):
+        try:
+            del self._params[key]
+        except:
+            pass
+
+    def all_params(self):
+        return self._params
+
+    def __repr__(self):
+        return ', '.join([f'{k}: {v}' for k, v in sorted(self._params.items())])
+
 class Stat:
+    """A simple class holding count/point metrics. An object of this class
+    is also assigned a given configuration, which is supposed to identify it
+    uniquely within the analysis.
+
+    Parameters
+    ----------
+    conf : `Conf`
+        The configuration identifying this statistics object.
+    
+    """
+
     def __init__(self, **params):
-        self._params = params
+        self._conf = Conf(**params)
         self._points = dict()
         self._counts = dict()
 
     def __repr__(self):
         """Return a string representation of the parameters."""
 
-        return ', '.join([f'{k}: {v}' for k, v in self._params.items()])
+        return str(self._conf)
 
     def __eq__(self, other):
         """Two `Stat` objects are equal if they have the same parameters."""
 
-        return self._params == other._params
+        return self._conf.all_params() == other._conf.all_params()
+
+    def conf(self):
+        """Return the conf object."""
+
+        return self._conf
 
     def change_param(self, key, value):
         """Change/add the value of a parameter."""
 
-        self._params[key] = value
+        self._conf.change_param(key, value)
     
     def del_param(self, key):
         """Remove a parameter. Ignore if it does not exist."""
 
-        try:
-            del self._params[key]
-        except KeyError:
-            pass
+        self._conf.del_param(key)
 
     def get_sum(self, metric):
         if metric in self._counts:
@@ -117,7 +155,7 @@ class Stat:
       """Return the content of this object, e.g., for serialization."""
 
       return {
-          'params' : self._params,
+          'conf' : self._conf.all_params(),
           'points' : self._points,
           'counts' : self._counts,
           }
@@ -127,10 +165,80 @@ class Stat:
         """Create and return a new `Stat` object with the given internal state."""
 
         ret = Stat()
-        ret._params = params
+        ret._conf = Conf(**params)
         ret._points = points
         ret._counts = counts
         return ret
+
+class MultiStat:
+    """A collection of Stat objects that can be serialized/deserialized.
+
+    """
+    def __init__(self):
+        self._stats = dict()
+
+    def add(self, stat):
+        """Add a stat object to the collection. Do nothing if already present.
+
+        Parameters
+        ----------
+        stat : `Stat`
+            The item to add to the collection.
+        
+        Returns
+        -------
+        True if added, False otherwise.
+
+        """
+
+        key = str(stat)
+        if key in self._stats:
+            return False
+        self._stats[key] = stat
+        return True
+
+    def __getitem__(self, conf):
+        """Return the `Stat` object associated to the given configuration.
+
+        Parameters
+        ----------
+        conf : `Conf`
+            The configuration for which the caller wishes to retrieve the `Stat`.
+        
+        Returns
+        -------
+        The `Stat` object associated to the given `Conf`, if any.
+
+        Raises
+        ------
+        KeyError
+            If there are no statistics associated to the given `Conf`.
+        
+        """
+
+        return self._stats[str(conf)]
+
+    def json_dump(self, fp):
+        """Serialize the content of the collection."""
+
+        data = []
+        for stat in self._stats.values():
+            data.append(stat.content_dump())
+
+        json.dump(data, fp)
+
+    @staticmethod
+    def json_load(fp):
+        """Deserialize from the given file to a new `MultiStat` object."""
+
+        mstat = MultiStat()
+        for content in json.load(fp):
+            mstat.add(Stat.make_from_content(
+                params=content['conf'],
+                points=content['points'],
+                counts=content['counts']))
+        return mstat
+
 
 def plot_all(x_values, xlabel, stats, metrics, block=False):
     if len(x_values) != len(stats):
