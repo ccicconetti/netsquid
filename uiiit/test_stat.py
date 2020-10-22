@@ -6,10 +6,36 @@ import unittest
 from simstat import Stat
 
 class TestStat(unittest.TestCase):
+    @staticmethod
+    def make_simple_stat():
+        stat = Stat(par1=42, par2="hello")
+        stat.add("mp", 0.1)
+        stat.add("mp", -3.14)
+        stat.add("mp", 100)
+        stat.count("mc", 1)
+        stat.count("mc", 2)
+        return stat
+
     def test_params(self):
         stat = Stat(par1="1", par2="0.5", par3="simple")
 
         self.assertEqual("par1: 1, par2: 0.5, par3: simple", str(stat))
+
+        stat.change_param('par1', 'mickey')
+        self.assertEqual("par1: mickey, par2: 0.5, par3: simple", str(stat))
+
+        stat.del_param('par1')
+        self.assertEqual("par2: 0.5, par3: simple", str(stat))
+
+    def test_eq(self):
+        stat1 = self.make_simple_stat()
+
+        stat2 = Stat(par2="hello", par1=42)
+        self.assertEqual(stat1, stat2)
+
+        stat3 = self.make_simple_stat()
+        stat3.change_param(key='par3', value='newvalue')
+        self.assertNotEqual(stat1, stat3)
 
     def test_double_definition(self):
         stat = Stat()
@@ -102,6 +128,17 @@ class TestStat(unittest.TestCase):
         with self.assertRaises(KeyError):
             stat.scale("m3", 1)
 
+    def test_content_dump_load(self):
+        stat1 = self.make_simple_stat()
+        content1 = stat1.content_dump()
+
+        stat2 = Stat.make_from_content(
+            params=content1['params'],
+            points=content1['points'],
+            counts=content1['counts'])
+        content2 = stat2.content_dump()
+
+        self.assertEqual(content1, content2)  
 
 if __name__ == '__main__':
     unittest.main()

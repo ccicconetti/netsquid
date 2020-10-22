@@ -1,6 +1,7 @@
 """This module specifies classes that help with the collection of statistics.
 """
 
+import json
 import math
 import matplotlib
 import matplotlib.pyplot as plt
@@ -13,65 +14,85 @@ __all__ = [
 class Stat:
     def __init__(self, **params):
         self._params = params
-        self._data = dict()
-        self._counters = dict()
+        self._points = dict()
+        self._counts = dict()
 
     def __repr__(self):
+        """Return a string representation of the parameters."""
+
         return ', '.join([f'{k}: {v}' for k, v in self._params.items()])
 
+    def __eq__(self, other):
+        """Two `Stat` objects are equal if they have the same parameters."""
+
+        return self._params == other._params
+
+    def change_param(self, key, value):
+        """Change/add the value of a parameter."""
+
+        self._params[key] = value
+    
+    def del_param(self, key):
+        """Remove a parameter. Ignore if it does not exist."""
+
+        try:
+            del self._params[key]
+        except KeyError:
+            pass
+
     def get_sum(self, metric):
-        if metric in self._counters:
-            return self._counters[metric][0]
-        elif metric in self._data:
-            return sum(self._data[metric])
+        if metric in self._counts:
+            return self._counts[metric][0]
+        elif metric in self._points:
+            return sum(self._points[metric])
         raise KeyError(f'Unknown metric {metric}')
 
     def get_count(self, metric):
-        if metric in self._counters:
-            return self._counters[metric][1]
-        elif metric in self._data:
-            return len(self._data[metric])
+        if metric in self._counts:
+            return self._counts[metric][1]
+        elif metric in self._points:
+            return len(self._points[metric])
         return 0
 
     def get_avg(self, metric):
-        if metric in self._counters:
-            return self._counters[metric][0] / self._counters[metric][1]
-        elif metric in self._data:
-            return sum(self._data[metric]) / len(self._data[metric])
+        if metric in self._counts:
+            return self._counts[metric][0] / self._counts[metric][1]
+        elif metric in self._points:
+            return sum(self._points[metric]) / len(self._points[metric])
         raise KeyError(f'Unknown metric {metric}')
 
     def get_all(self, metric):
-        if metric in self._counters:
-            return self._counters[metric][0]
-        elif metric in self._data:
-            return self._data[metric]
+        if metric in self._counts:
+            return self._counts[metric][0]
+        elif metric in self._points:
+            return self._points[metric]
         raise KeyError(f'Unknown metric {metric}')
 
     def count_metrics(self):
         """Return all the count metrics."""
 
-        return set(self._counters.keys())
+        return set(self._counts.keys())
 
     def point_metrics(self):
         """Return all the point metrics."""
 
-        return set(self._data.keys())
+        return set(self._points.keys())
 
     def count(self, metric, value):
-        if metric in self._data:
+        if metric in self._points:
             raise KeyError(f'Metric {metric} already used')
-        if metric not in self._counters:
-            self._counters[metric] = [0, 0]
-        record = self._counters[metric]
+        if metric not in self._counts:
+            self._counts[metric] = [0, 0]
+        record = self._counts[metric]
         record[0] += value
         record[1] += 1
 
     def add(self, metric, value):
-        if metric in self._counters:
+        if metric in self._counts:
             raise KeyError(f'Metric {metric} already used')
-        if metric not in self._data:
-            self._data[metric] = []
-        self._data[metric].append(value)
+        if metric not in self._points:
+            self._points[metric] = []
+        self._points[metric].append(value)
 
     def scale(self, metric, value):
         """Apply a constant scale factor to all values of a metric.
@@ -85,12 +106,31 @@ class Stat:
         
         """
 
-        if metric in self._counters:
-            self._counters[metric][0] = self._counters[metric][0] * value
-        elif metric in self._data:
-            self._data[metric] = [x * value for x in self._data[metric]]
+        if metric in self._counts:
+            self._counts[metric][0] = self._counts[metric][0] * value
+        elif metric in self._points:
+            self._points[metric] = [x * value for x in self._points[metric]]
         else:
             raise KeyError(f'Unknown metric: {metric}')
+
+    def content_dump(self):
+      """Return the content of this object, e.g., for serialization."""
+
+      return {
+          'params' : self._params,
+          'points' : self._points,
+          'counts' : self._counts,
+          }
+
+    @staticmethod
+    def make_from_content(params, points, counts):
+        """Create and return a new `Stat` object with the given internal state."""
+
+        ret = Stat()
+        ret._params = params
+        ret._points = points
+        ret._counts = counts
+        return ret
 
 def plot_all(x_values, xlabel, stats, metrics, block=False):
     if len(x_values) != len(stats):
@@ -145,13 +185,13 @@ def plot_multi(x_values, xlabel, ylabel, stats, metrics, ax):
     ax.grid()
 
     for metric in sorted(metrics):
-        x_values_with_data = []
+        x_values_with_points = []
         y_values = []
         e_values = []
         for stat,x_value in zip(stats, x_values):
             if metric not in stat.point_metrics():
                 continue
-            x_values_with_data.append(x_value)
+            x_values_with_points.append(x_value)
             y_values.append(stat.get_avg(metric))
             if stat.get_count(metric) >= 2:
                 stat = sms.DescrStatsW(stat.get_all(metric))
@@ -160,7 +200,7 @@ def plot_multi(x_values, xlabel, ylabel, stats, metrics, ax):
             else:
                 e_values.append(0)
 
-        ax.errorbar(x_values_with_data, y_values, e_values, marker='x', label=metric, capsize=5)
+        ax.errorbar(x_values_with_points, y_values, e_values, marker='x', label=metric, capsize=5)
 
 def plot_single(x_values, xlabel, stats, metric, func, ax):
     ax.set(xlabel=xlabel, ylabel=metric)
@@ -177,13 +217,13 @@ def boxplot_single(x_values, xlabel, stats, metric, ax):
     ax.grid()
 
     y_values = []
-    x_values_with_data = []
+    x_values_with_points = []
     avg_values = [] 
     for stat, x_value in zip(stats, x_values):
         if metric in stat.point_metrics():
             y_values.append(stat.get_all(metric))
-            x_values_with_data.append(x_value)
+            x_values_with_points.append(x_value)
             avg_values.append(stat.get_avg(metric))
 
-    ax.boxplot(y_values, positions=x_values_with_data, notch=1, sym='k+')
-    ax.plot(x_values_with_data, avg_values, label=metric)
+    ax.boxplot(y_values, positions=x_values_with_points, notch=1, sym='k+')
+    ax.plot(x_values_with_points, avg_values, label=metric)
