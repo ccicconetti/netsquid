@@ -258,9 +258,15 @@ class MultiStat:
 
         json.dump(data, fp)
 
+    def json_dump_to_file(self, path):
+        """Serialize the content of the collection to a file. Convenience wrapper of `json_dump`."""
+
+        with open(path, 'w') as outfile:
+            self.json_dump(outfile)
+
     @staticmethod
     def json_load(fp):
-        """Deserialize from the given file to a new `MultiStat` object."""
+        """Deserialize from the given stream to a new `MultiStat` object."""
 
         mstat = MultiStat()
         for content in json.load(fp):
@@ -269,6 +275,13 @@ class MultiStat:
                 points=content['points'],
                 counts=content['counts']))
         return mstat
+
+    @staticmethod
+    def json_load_from_file(path):
+        """Deserialize from a given file. Convenience wrapper of `json_load`."""
+
+        with open(path, 'r') as infile:
+            return MultiStat.json_load(infile)
 
     def export(self, path):
         """Export all the `Stat` in the collection to text files.

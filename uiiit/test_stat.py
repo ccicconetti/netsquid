@@ -210,6 +210,25 @@ class TestMultiStat(unittest.TestCase):
         mstat_new = MultiStat.json_load(io)
         self.assertEqual(2, len(mstat_new.all_confs()))
 
+    def test_json_file(self):
+        path = 'test_directory'
+        if os.path.exists(path):
+            shutil.rmtree(path)
+        os.mkdir('test_directory')
+
+        # create a collection
+        mstat = MultiStat()
+        mstat.add(make_simple_stat())
+        mstat.add(make_simple_stat(new_param=42))
+
+        # serialize to file
+        mstat.json_dump_to_file(f'{path}/mstat.json')
+
+        # deserialize from file
+        mstat_new = MultiStat.json_load_from_file(f'{path}/mstat.json')
+
+        self.assertEqual(len(mstat), len(mstat_new))
+
     def test_export(self):
         path = 'test_directory'
         if os.path.exists(path):
