@@ -223,7 +223,9 @@ class TestMultiStat(unittest.TestCase):
 
         # create a collection
         mstat = MultiStat()
+        self.assertFalse(mstat)
         mstat.add(make_simple_stat())
+        self.assertTrue(mstat)
         mstat.add(make_simple_stat(new_param=42))
 
         # serialize to file
@@ -233,6 +235,10 @@ class TestMultiStat(unittest.TestCase):
         mstat_new = MultiStat.json_load_from_file(f'{path}/mstat.json')
 
         self.assertEqual(len(mstat), len(mstat_new))
+
+    def test_json_file_empty(self):
+        mstat = MultiStat.json_load_from_file(f'doesnotexist.json')
+        self.assertFalse(mstat)
 
     def test_export(self):
         path = 'test_directory'

@@ -254,6 +254,11 @@ class MultiStat:
 
         return len(self._stats)
 
+    def empty(self):
+        """Return True if there are not items in the collection."""
+
+        return True if not self._stats else False
+
     def json_dump(self, fp):
         """Serialize the content of the collection."""
 
@@ -283,10 +288,25 @@ class MultiStat:
 
     @staticmethod
     def json_load_from_file(path):
-        """Deserialize from a given file. Convenience wrapper of `json_load`."""
+        """Deserialize from a given file. Convenience wrapper of `json_load`.
 
-        with open(path, 'r') as infile:
-            return MultiStat.json_load(infile)
+        If `path` does not exist then an empty `MultiStat` is returned.
+        
+        Parameters
+        ----------
+        path : str
+            The path of the file to open.
+
+        Returns
+        -------
+        A `MultiStat` object initialized with the content from the JSON file.
+        """
+
+        try:
+            with open(path, 'r') as infile:
+                return MultiStat.json_load(infile)
+        except FileNotFoundError:
+            return MultiStat()
 
     def export(self, path):
         """Export all the `Stat` in the collection to text files.
