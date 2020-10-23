@@ -188,6 +188,22 @@ class Stat:
                 for value in values:
                     outfile.write(f'{value}\n')
 
+    def print(self, metrics=None):
+        """Print the content to human-readable format.
+        
+        Parameters
+        ----------
+        metrics : None or iterable
+            Print only this metrics. If None print all.
+        """
+
+        for metric, record in self._counts.items():
+            if metrics is None or metric in metrics:
+                print(f"{metric} = {record[0]}")
+        for metric, values in self._points.items():
+            if metrics is None or metric in metrics:
+                print(f"{metric} = {[f'{x:.3f}' for x in values]}")
+
 class MultiStat:
     """A collection of Stat objects that can be serialized/deserialized.
 
@@ -348,6 +364,13 @@ class MultiStat:
 
         for stat in self._stats.values():
             stat.export(path)
+
+    def print(self):
+        """Print all the `Stat` objects in a human-readable manner."""
+
+        for stat in self._stats.values():
+            print(f'** {stat}')
+            stat.print()
 
 def plot_all(x_values, xlabel, stats, metrics, block=False):
     if len(x_values) != len(stats):

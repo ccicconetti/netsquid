@@ -156,6 +156,11 @@ class TestStat(unittest.TestCase):
         self.assertTrue(os.path.exists(f'{path}/par1=42.par2=hello-mc.dat'))
         self.assertTrue(os.path.exists(f'{path}/par1=42.par2=hello-mp.dat'))
 
+    @unittest.skip
+    def test_print(self):
+        stat = make_simple_stat()
+        stat.print()
+
 class TestMultiStat(unittest.TestCase):
     def test_multistat_ctor(self):
         mstat_empty = MultiStat()
@@ -278,7 +283,16 @@ class TestMultiStat(unittest.TestCase):
             make_simple_stat(new_param=42),
             ])
         with open('mstat.json', 'w') as outfile:
+
             mstat.json_dump(outfile)
+
+    @unittest.skip
+    def test_print(self):
+        mstat = MultiStat([
+            make_simple_stat(),
+            make_simple_stat(new_param=42),
+            ])
+        mstat.print()
 
 if __name__ == '__main__':
     unittest.main()
