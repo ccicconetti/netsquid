@@ -198,25 +198,41 @@ class MultiStat:
             for stat in initial:
                 self.add(stat)
 
-    def add(self, stat):
-        """Add a stat object to the collection. Do nothing if already present.
+    def _add_single(self, stat):
+        """Add a `Stat` object to the collection doing nothing if present."""
 
-        Parameters
-        ----------
-        stat : `Stat`
-            The item to add to the collection.
-        
-        Returns
-        -------
-        True if added, False otherwise.
-
-        """
+        if not isinstance(stat, Stat):
+            raise TypeError('Expected a Stat object when calling _add_single()')
 
         key = str(stat)
         if key in self._stats:
             return False
         self._stats[key] = stat
         return True
+
+    def add(self, stats):
+        """Add one or more `Stat` objects to the collection.
+        
+        Do nothing if any of them are already present.
+
+        Parameters
+        ----------
+        stats : `Stat` or list of `Stat` objects
+            The item to add to the collection.
+        
+        Returns
+        -------
+        True if at least one object has been added, False otherwise.
+
+        """
+
+        if hasattr(stats, '__iter__'):
+            ret = False
+            for stat in stats:
+                ret |= self._add_single(stat)
+            return ret
+
+        return self._add_single(stats)
 
     def __getitem__(self, conf):
         """Return the `Stat` object associated to the given configuration.

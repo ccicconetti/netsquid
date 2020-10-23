@@ -199,6 +199,22 @@ class TestMultiStat(unittest.TestCase):
         self.assertEqual({'mc'}, mstat[conf2].count_metrics())
         self.assertEqual(2, len(mstat))
 
+    def test_multistat_add_multiple(self):
+        mstat = MultiStat()
+
+        stat1 = make_simple_stat(new_param=1)
+        stat2 = make_simple_stat(new_param=2)
+        stat3 = make_simple_stat(new_param=3)
+
+        self.assertTrue(mstat.add([stat1, stat2]))
+        self.assertEqual(2, len(mstat))
+
+        self.assertTrue(mstat.add([stat1, stat3]))
+        self.assertEqual(3, len(mstat))
+
+        self.assertFalse(mstat.add([stat1, stat2, stat3]))
+        self.assertEqual(3, len(mstat))
+
     def test_json(self):
         # create a collection
         mstat = MultiStat()
