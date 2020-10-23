@@ -9,7 +9,7 @@ from io import StringIO
 from simstat import Conf, Stat, MultiStat
 
 def make_simple_stat(**kwargs):
-    stat = Stat(par1=42, par2="hello")
+    stat = Stat(Conf(par1=42, par2="hello"))
     for k, v in kwargs.items():
         stat.change_param(k, v)
     stat.add("mp", 0.1)
@@ -22,7 +22,7 @@ def make_simple_stat(**kwargs):
 class TestStat(unittest.TestCase):
 
     def test_params(self):
-        stat = Stat(par1="1", par2="0.5", par3="simple")
+        stat = Stat(Conf(par1="1", par2="0.5", par3="simple"))
 
         self.assertEqual("par1: 1, par2: 0.5, par3: simple", str(stat))
 
@@ -35,7 +35,7 @@ class TestStat(unittest.TestCase):
     def test_eq(self):
         stat1 = make_simple_stat()
 
-        stat2 = Stat(par2="hello", par1=42)
+        stat2 = Stat(Conf(par2="hello", par1=42))
         self.assertEqual(stat1, stat2)
 
         stat3 = make_simple_stat()

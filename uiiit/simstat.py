@@ -52,8 +52,8 @@ class Stat:
     
     """
 
-    def __init__(self, **params):
-        self._conf = Conf(**params)
+    def __init__(self, conf=None):
+        self._conf = conf if conf is not None else Conf()
         self._points = dict()
         self._counts = dict()
 
