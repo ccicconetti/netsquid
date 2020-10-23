@@ -132,10 +132,86 @@ class SocketCollector:
         
         return ret
 
+class SocketParallerRunner:
+    """Run a given function in parallel and return the list of their return values.
+
+    Spawns a number of workers and synchronize their I/O via `Queue` and sockets.
+
+    Parameters
+    ----------
+    address : str
+        The address where to bind the listening TCP socket.
+    port : int
+        The port where to bind the listing TCP socket.
+
+    """
+    def __init__(self, address, port):
+        self._address = address
+        self._port = port
+
+    def _sub_func(self, qin, func):
+        """Single worker called by `run()`."""
+
+        while True:
+            try:
+                args = qin.get_nowait()
+            except Empty:
+                return
+
+            SocketSender(self._address, self._port).send(func(args))
+
+    def run(self, nworkers, func, args):
+        """Run a given function in parallel and return the list of their return values.
+
+        Spawns a number of workers and synchronize their I/O via `Queue` and sockets.
+
+        Parameters
+        ----------
+        nworkers : int
+            The number of workers to spawn.
+        func : lambda
+            The function to call.
+        args : list
+            The list of arguments. The size of this list is the same as the number
+            of executions of the function.
+
+        Returns
+        -------
+        A list of items, one for each function invoked.
+        
+        Raises
+        ------
+        ValueError
+            If the number of workers is smaller than 1.
+
+        """
+
+        if nworkers < 1:
+            raise ValueError(f"Invalid number of workers: {nworkers}")
+
+        qin = Queue()
+        for arg in args:
+            qin.put(arg)
+
+        processes = []
+        for _ in range(nworkers):
+            p = Process(target=SocketParallerRunner._sub_func, args=(self, qin, func))
+            p.start()
+            processes.append(p)
+
+        collector = SocketCollector(self._address, self._port)
+
+        ret = collector.collect(expected=len(args))
+
+        for p in processes:
+            p.join()
+
+        return ret
+
 class ParallerRunner:
     @staticmethod
     def _sub_func(qin, qout, func):
-        """Single worker called by `run_parallel`."""
+        """Single worker called by `run()`."""
 
         while True:
             try:

@@ -12,9 +12,9 @@ import socket
 from time import sleep
 from random import uniform
 
-from utils import ParallerRunner, SocketCollector, SocketSender
+from utils import SocketParallerRunner, ParallerRunner, SocketCollector, SocketSender
 
-def my_func(arg):
+def func_get_sum(arg):
     sleep(uniform(0, 0.2))
     return arg[0] + arg[1]
 
@@ -22,18 +22,22 @@ def func_get_pid(arg):
     sleep(1)
     return os.getpid()
 
+def func_get_big(arg):
+    sleep(uniform(0, 0.2))
+    return [x for x in range(2**20)]
+
 class TestUtils(unittest.TestCase):
-    def test_run_operations(self):
+    def test_parallel_runner(self):
         args = []
         expected = set()
         for i in range(50):
             args.append([i, i+1])
             expected.add(2 * i + 1)
-        ret = ParallerRunner.run(10, my_func, args)
+        ret = ParallerRunner.run(10, func_get_sum, args)
 
         self.assertEqual(expected, set(ret))
 
-    def test_run_getpid(self):
+    def test_parallel_runner_getpid(self):
         nworkers = 10
 
         #
@@ -58,6 +62,17 @@ class TestUtils(unittest.TestCase):
         # (might not be true on all operating systems)
         self.assertLessEqual(nworkers, len(set(ret)))
 
+    def test_socket_parallel_runner(self):
+        logging.basicConfig(level=logging.INFO)
+        expected_item = [x for x in range(2**20)]
+        args = [None for _ in range(50)]
+        spr = SocketParallerRunner('localhost', 21001)
+        ret = spr.run(10, func_get_big, args)
+
+        self.assertEqual(50, len(ret))
+        for item in ret:
+            self.assertEqual(expected_item, item)
+
     @unittest.skip
     def test_socket_collector(self):
         logging.basicConfig(level=logging.INFO)
@@ -68,7 +83,6 @@ class TestUtils(unittest.TestCase):
 
     @unittest.skip
     def test_socket_sender(self):
-        logging.basicConfig(level=logging.INFO)
         sender = SocketSender('localhost', 21001)
 
         big_msg = [x for x in range(2**20)]
