@@ -79,7 +79,7 @@ Edges: (5):
 
         self.assertEqual([3], Topology.traversing(prev, 4, 2))
 
-        with self.assertRaises(RuntimeError):
+        with self.assertRaises(KeyError):
             net5.spt(999)
 
         with self.assertRaises(KeyError):
@@ -466,6 +466,72 @@ Edges: (5):
         net_uni = Topology("edges", edges=edges)
 
         self.assertEqual({(0, 1), (1, 2), (2, 3), (3, 0)}, net_uni.farthest_nodes())
+
+    def test_change_weight(self):
+        net = Topology("edges", edges=self.edges_test, default_weight=42)
+
+        for e in self.edges_test:
+            self.assertEqual(42, net.weight(e[1], e[0]))
+
+        with self.assertRaises(KeyError):
+            net.weight(0, 3)
+
+        net.change_weight(3, 0, 1)
+        net.change_weight(0, 1, 2)
+
+        self.assertEqual(1, net.weight(3, 0))
+        self.assertEqual(2, net.weight(0, 1))
+
+    def test_spt_weights(self):
+        #
+        #    1 --> 2
+        #    ^     | 
+        #    |     v
+        # 0 -+     3
+        #    |     ^
+        #    |     |
+        #    +-----+
+        #
+        edges = [
+            [1, 0],
+            [2, 1],
+            [3, 2],
+            [3, 0]
+        ]
+        net = Topology("edges", edges=edges, default_weight=2)
+
+        self.assertEqual(4, net.diameter())
+        self.assertEqual(4, net.longest_path()) # should be 6?
+        self.assertEqual(float('inf'), net.distance(1, 0))
+        self.assertEqual(0, net.distance(0, 0))
+        self.assertEqual(2, net.distance(0, 1))
+        self.assertEqual(4, net.distance(0, 2))
+        self.assertEqual(2, net.distance(0, 3))
+
+        net.change_weight(1, 2, 100)
+
+        self.assertEqual(102, net.diameter())
+        self.assertEqual(102, net.longest_path()) # should be 6?
+        self.assertEqual(0, net.distance(0, 0))
+        self.assertEqual(2, net.distance(0, 1))
+        self.assertEqual(102, net.distance(0, 2))
+        self.assertEqual(2, net.distance(0, 3))
+
+        for e in edges:
+            net.change_weight(e[1], e[0], 1.5)
+
+        self.assertEqual(3, net.diameter())
+        self.assertEqual(3, net.longest_path()) # should be 4.5?
+        self.assertEqual(0, net.distance(0, 0))
+        self.assertEqual(1.5, net.distance(0, 1))
+        self.assertEqual(3, net.distance(0, 2))
+        self.assertEqual(1.5, net.distance(0, 3))
+
+        net.change_weight(0, 3, 10)
+
+        self.assertEqual(4.5, net.diameter())
+        self.assertEqual(10, net.longest_path())
+        self.assertEqual(4.5, net.distance(0, 3))
 
     @unittest.skip
     def test_graphviz(self):

@@ -13,6 +13,11 @@ class EmptyTopology(Exception):
 
 class Topology:
     """Topology of a network of nodes.
+
+    The data structured is designed with sparse graphs in mind.
+
+    The default weight/cost of each edge is assigned in the ctor and can
+    then be updated with the `change_weight()` method.
     
     Parameters
     ----------
@@ -27,6 +32,8 @@ class Topology:
         Name of the input file. Only used with a "brite" topology.
     edges : list, optional
         List of edges [dst -> src]. Only used with an "edges" topology.
+    default_weight : float
+        The weight/cost associated to each directed edge.
 
     Properties
     ----------
@@ -42,7 +49,7 @@ class Topology:
     EmptyTopology
         If the graph would be empty.
     """
-    def __init__(self, type, size=1, in_file_name="", edges=[]):
+    def __init__(self, type, size=1, in_file_name="", edges=[], default_weight=1):
         # Lazy-initialized list of the (unidirectional) edges
         self._edges = None
 
@@ -68,6 +75,10 @@ class Topology:
         # The names optionally assigned to nodes
         self._names_by_id = None
         self._id_by_names = None
+
+        # The weight matrix, initially empty.
+        self._weight_matrix = None
+        self._default_weight = default_weight
 
         # Create the graph
         if type == "chain" or type == "ring":
@@ -338,8 +349,23 @@ class Topology:
 
         return self._graph[node]
 
-    def spt(self, source, weight=1):
-        """Compute the shortest-path tree to source
+    def spt(self, source, opposite_weight=False):
+        """Compute the shortest-path tree to source.
+
+        Parameters
+        ----------
+        source : int
+            The identifier of the node for which to compute the SPT.
+        opposite_weight : bool
+            Take the opposite of the weights.
+        
+        Returns
+        -------
+        The previous hop and distances of all nodes to reach `src`. This is
+        returned as a pair of dictionaries: the first one for every node u
+        is the identifier of the node to which us has to send its commodity
+        to reach `src` along a shortest path; the second one is the
+        distance from every node u to `src` along that path.
         """
 
         Q = []
@@ -351,7 +377,7 @@ class Topology:
             prev[v] = None
 
         if source not in dist:
-            raise RuntimeError(f'Cannot compute the path to node {source} that is not in {Q}')
+            raise KeyError(f'{source} is not in {Q}')
 
         dist[source] = 0
 
@@ -369,7 +395,10 @@ class Topology:
                 if v not in self._graph[u]:
                     continue
                 # v is in Q and a neighbor of u
-                alt = dist[u] + weight
+                alt_dist_u_v = self.weight(v, u)
+                if opposite_weight:
+                    alt_dist_u_v *= -1.0
+                alt = dist[u] + alt_dist_u_v
                 if alt < dist[v]:
                     dist[v] = alt
                     prev[v] = u
@@ -383,18 +412,20 @@ class Topology:
         return self._nexthop_matrix[dst][src]
 
     def distance(self, src, dst):
-        """Return the distance, in hops, from src to dst."""
+        """Return the distance, in traversing cost, from src to dst."""
 
         self._create_nexthop_matrix()
         return self._distance_matrix[dst][src]
 
     def diameter(self):
-        """Return the maximum distance between any two nodes."""
+        """Return the maximum traversing cost between any two nodes."""
 
         self._create_nexthop_matrix()
         diameter = 0
         for _, neigh in self._distance_matrix.items():
-            diameter = max(diameter, max(neigh.values()))
+            diameter = max(
+                diameter,
+                max([x for x in neigh.values() if x != float('inf')]))
         return diameter
 
     def farthest_nodes(self):
@@ -415,7 +446,7 @@ class Topology:
 
         min_path = float('inf')
         for u in self._graph.keys():
-            _, dist = self.spt(u, weight=-1)
+            _, dist = self.spt(u, opposite_weight=True)
             min_path = min(min_path, min(dist.values()))
 
         return -min_path
@@ -483,6 +514,71 @@ class Topology:
 
         return topo
 
+    def change_weight(self, src, dst, weight):
+        """Change the weight betwen two nodes.
+
+        Parameters
+        ----------
+        src : int
+            The source node.
+        dst : int
+            The destination node.
+        weight : float
+            The weight or cost to reach `dst` from its neighbor `src`.
+
+        Raises
+        ------
+        KeyError
+            If `src` or `dst` do not exist or if they are not neighbors.
+        
+        """
+
+        self._check_neighbors(src, dst)
+
+        if weight == self._default_weight:
+            return
+
+        if self._weight_matrix is None:
+            self._weight_matrix = dict()
+        if dst not in self._weight_matrix:
+            self._weight_matrix[dst] = dict()
+        self._weight_matrix[dst][src] = weight
+
+        # Invalidate the next-hop and distance matrices
+        self._nexthop_matrix = None
+        self._distance_matrix = None
+
+    def weight(self, src, dst):
+        """Return the weight from `dst` to `src`.
+
+        Parameters
+        ----------
+        src : int
+            The source node.
+        dst : int
+            The destination node.            
+
+        Returns
+        -------
+        The weight or cost to reach `dst` from its neighbor `src`.
+
+        Raises
+        ------
+        KeyError
+            If `src` or `dst` do not exist or if they are not neighbors.
+
+        """
+
+        self._check_neighbors(src, dst)
+        if self._weight_matrix is not None:
+            if dst in self._weight_matrix and src in self._weight_matrix[dst]:
+                return self._weight_matrix[dst][src]
+        return self._default_weight
+
+    def _check_neighbors(self, src, dst):
+        if dst not in self._graph or src not in self._graph[dst]:
+            raise KeyError(f"Nodes {dst} to {src} do not have an edge")
+
     @staticmethod
     def traversing(spt, src, dst):
         """"Return the nodes traversed from src to dst according to the given SPT
@@ -532,4 +628,4 @@ class Topology:
 
         for u in self._graph.keys():
             self._nexthop_matrix[u], self._distance_matrix[u] = self.spt(u)
-    
+
