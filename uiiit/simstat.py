@@ -34,6 +34,14 @@ class Conf:
     def all_params(self):
         return self._params
 
+    def match(self, **kwargs):
+        for k, v in kwargs.items():
+            if k not in self._params:
+                raise KeyError(f'Invalid parameter: {k}')
+            if self._params[k] != v:
+                return False
+        return True
+
     def compact(self):
         return '.'.join([f'{k}={v}' for k, v in sorted(self._params.items())])
 
@@ -305,6 +313,18 @@ class MultiStat:
 
         with open(path, 'w') as outfile:
             self.json_dump(outfile)
+
+    def filter(self, **kwargs):
+        """Return a list of `Stat` objects matching the given criteria.
+
+        If a parameter is not specified, then it is assumed that any value is OK.
+
+        """
+        ret = []
+        for stat in self._stats.values():
+            if stat.conf().match(**kwargs):
+                ret.append(stat)
+        return ret
 
     @staticmethod
     def json_load(fp):

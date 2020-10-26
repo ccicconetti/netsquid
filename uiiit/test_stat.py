@@ -19,6 +19,29 @@ def make_simple_stat(**kwargs):
     stat.count("mc", 2)
     return stat
 
+class TestConf(unittest.TestCase):
+    def test_match(self):
+        conf = Conf(
+            meaning_of_life=42,
+            best_movie_ever='Gone with the wind',
+            best_james_bond='Sean Connery')
+
+        with self.assertRaises(KeyError):
+            conf.match(best_actress_ever='Meryl Streep')
+
+        with self.assertRaises(KeyError):
+            conf.match(meaning_of_life=42, best_actress_ever='Meryl Streep')
+
+        self.assertTrue(conf.match(meaning_of_life=42))
+
+        self.assertTrue(conf.match(
+            meaning_of_life=42, best_movie_ever='Gone with the wind'))
+
+        self.assertFalse(conf.match(meaning_of_life="live happy"))
+
+        self.assertFalse(conf.match(
+            meaning_of_life=42, best_movie_ever='Ben-Hur'))
+
 class TestStat(unittest.TestCase):
 
     def test_params(self):
@@ -275,6 +298,18 @@ class TestMultiStat(unittest.TestCase):
         self.assertTrue(os.path.exists(f'{path}/new_param=42.par1=42.par2=hello-mp.dat'))
         self.assertTrue(os.path.exists(f'{path}/par1=42.par2=hello-mc.dat'))
         self.assertTrue(os.path.exists(f'{path}/par1=42.par2=hello-mp.dat'))
+
+    def test_filter(self):
+        mstat = MultiStat([
+            make_simple_stat(par1=10),
+            make_simple_stat(par1=20),
+            make_simple_stat(par1=30),
+            ])
+
+        self.assertEqual(0, len(mstat.filter(par1=0)))
+        self.assertEqual(1, len(mstat.filter(par1=10)))
+        self.assertEqual(3, len(mstat.filter(par2="hello")))
+        self.assertEqual(3, len(mstat.filter()))
 
     @unittest.skip
     def test_save_to_json(self):
