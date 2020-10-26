@@ -2,9 +2,13 @@
 """
 
 import subprocess
+import random
 
 __all__ = [
-    "Topology"
+    "Topology",
+    "Topography",
+    "TopographyDist",
+    "Topography2D",
     ]
 
 class EmptyTopology(Exception):
@@ -628,4 +632,99 @@ class Topology:
 
         for u in self._graph.keys():
             self._nexthop_matrix[u], self._distance_matrix[u] = self.spt(u)
+
+class Topography:
+    """Base class definining the interface of topography objects.
+
+    A topography objects models a physical arrangement of nodes in space.
+    
+    """
+    def __init__(self):
+        pass
+
+    def distance(self, src, dst):
+        """Return the distance from `src` to `dst`.
+
+        In general the distance from `dst` to `src` might be different.
+        
+        """
+        raise NotImplementedError('This method must be overridden')
+
+class TopographyDist(Topography):
+    def __init__(self):
+        super().__init__()
+        self._distance = dict()
+
+    def distance(self, src, dst):
+        """Return the distance from `src` to `dst`, always symmetric."""
+
+        return self._distance[src][dst]
+
+    def set_distance(self, u, v, dist):
+        """Set the distance between nodes `u` and `v`.
+
+        The distance between the two nodes is symmetric and it overwrites
+        the previous value, if any.
+
+        Parameters
+        ----------
+        u : int
+            The first node identifier.
+        v : int
+            The second node identifier.
+        dist : float
+            The distance between the two nodes.
+        
+        """
+
+        if u not in self._distance:
+            self._distance[u] = dict()
+        if v not in self._distance:
+            self._distance[v] = dict()
+
+        self._distance[u][v] = dist
+        self._distance[v][u] = dist
+
+    @staticmethod
+    def make_from_topology(topology, distance_min, distance_max):
+        """Return a `TopographyDist` object initialized based on the arguments.
+
+        The distance between any two nodes that share an edge in `topology`
+        is set to a random value drawn from a uniform r.v. in [`distance_min`,
+        `distance_max`].
+
+        Parameters
+        ----------
+        topology : `Topology`
+            The topology from which to infer the edges. Only consider
+            the bidirectional edges (unidirectional ones are ignored).
+        distance_min : float
+            The minimum distance between two nodes.
+        distance_max : float
+            The maximum distance between wo nodes.
+
+        Returns
+        -------
+        A `TopographyDist` object.
+        
+        """
+
+        if distance_min > distance_max:
+            raise ValueError(f'Min distance ({distance_min}) cannot be greater than max distance ({distance_max})')
+
+        topo = TopographyDist()
+        for e in topology.biedges():
+            dist =  random.uniform(distance_min, distance_max)
+            topo.set_distance(e[0], e[1], dist)
+        return topo
+        
+class Topography2D:
+    """Physical layout where nodes are arranged.
+
+    The position is identified by means of a (x, y) coordinated in a plane.
+    
+    """
+    def __init__(self, type):
+        pass
+
 

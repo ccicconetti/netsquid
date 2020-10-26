@@ -4,7 +4,7 @@ __license__ = "MIT"
 
 import unittest
 import tempfile
-from topology import Topology, EmptyTopology
+from topology import Topology, EmptyTopology, TopographyDist, Topography2D
 
 class TestTopology(unittest.TestCase):
     brite_topo = \
@@ -536,6 +536,33 @@ Edges: (5):
     @unittest.skip
     def test_graphviz(self):
         Topology("grid", size=4).save_dot("mygraph")
+
+class TestTopographyDist(unittest.TestCase):
+    def test_distance(self):
+        net = Topology("ring", size=4)
+        topo = TopographyDist.make_from_topology(net, 5, 10)
+
+        edges = [[0, 1], [1, 2], [2, 3]]
+        different_elems = set()
+        for e in edges:
+            self.assertGreaterEqual(topo.distance(e[0], e[1]), 5)
+            self.assertLessEqual(topo.distance(e[0], e[1]), 10)
+            self.assertEqual(topo.distance(e[0], e[1]),
+                             topo.distance(e[1], e[0]))
+            different_elems.add(topo.distance(e[0], e[1]))
+            different_elems.add(topo.distance(e[1], e[0]))
+
+        self.assertEqual(3, len(different_elems))
+
+        with self.assertRaises(KeyError):
+            topo.distance(0, 2)
+
+        with self.assertRaises(KeyError):
+            topo.distance(0, 10)
+
+        with self.assertRaises(KeyError):
+            topo.distance(20, 10)
+
 
 if __name__ == '__main__':
     unittest.main()
