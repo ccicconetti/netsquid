@@ -326,6 +326,20 @@ class MultiStat:
                 ret.append(stat)
         return ret
 
+    def all_values(self, param):
+        """Return all the values for the given parameter.
+        
+        Raises
+        ------
+        KeyError
+            If the given parameter is not specified in at least one element.
+        """
+
+        ret = set()
+        for stat in self._stats.values():
+            ret.add(stat.conf()[param])
+        return ret
+
     @staticmethod
     def json_load(fp):
         """Deserialize from the given stream to a new `MultiStat` object."""
