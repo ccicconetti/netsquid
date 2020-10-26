@@ -289,6 +289,11 @@ class MultiStat:
 
         return set(self._stats.keys())
 
+    def all_values(self):
+        """Return all the `Stat` objects stored in the collection as a list."""
+
+        return list(self._stats.values())
+
     def __len__(self):
         """Return the number of elements stored in the container."""
 
@@ -315,18 +320,19 @@ class MultiStat:
             self.json_dump(outfile)
 
     def filter(self, **kwargs):
-        """Return a list of `Stat` objects matching the given criteria.
+        """Return a `MultiStat` objects with elements matching the given criteria.
 
         If a parameter is not specified, then it is assumed that any value is OK.
 
         """
-        ret = []
+
+        stats = []
         for stat in self._stats.values():
             if stat.conf().match(**kwargs):
-                ret.append(stat)
-        return ret
+                stats.append(stat)
+        return MultiStat(stats)
 
-    def all_values(self, param):
+    def param_values(self, param):
         """Return all the values for the given parameter.
         
         Raises

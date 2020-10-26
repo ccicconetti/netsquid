@@ -311,7 +311,7 @@ class TestMultiStat(unittest.TestCase):
         self.assertEqual(3, len(mstat.filter(par2="hello")))
         self.assertEqual(3, len(mstat.filter()))
 
-    def test_all_values(self):
+    def test_param_values(self):
         mstat = MultiStat([
             make_simple_stat(par1=10),
             make_simple_stat(par1=20),
@@ -321,13 +321,13 @@ class TestMultiStat(unittest.TestCase):
             ])
 
         with self.assertRaises(KeyError):
-            mstat.all_values('non-existing-par')
+            mstat.param_values('non-existing-par')
         
-        self.assertEqual({10, 20, 30}, mstat.all_values('par1'))
-        self.assertEqual({"hello", "world"}, mstat.all_values('par2'))
+        self.assertEqual({10, 20, 30}, mstat.param_values('par1'))
+        self.assertEqual({"hello", "world"}, mstat.param_values('par2'))
 
         with self.assertRaises(KeyError):
-            mstat.all_values('new_par')
+            mstat.param_values('new_par')
 
     @unittest.skip
     def test_save_to_json(self):
