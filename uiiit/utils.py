@@ -99,7 +99,7 @@ class SocketCollector:
 
             while len(ret) < expected:
                 clientsocket, address = s.accept()
-                logging.info(f"Connection from {address} established")
+                logging.debug(f"Connection from {address} established")
 
                 try:
                     while len(ret) < expected:
