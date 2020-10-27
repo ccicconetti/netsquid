@@ -196,7 +196,7 @@ class MultiConstantApplication(MultiApplication):
             self._pairs.append([pair[0], pair[1], max_qubits])
 
     def _get_pairs(self):
-        return self._pairs
+        return list(self._pairs)
 
 class MultiRandomApplication(MultiConstantApplication):
     """Return a random list of pairs from a set.
