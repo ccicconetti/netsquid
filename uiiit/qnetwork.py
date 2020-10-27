@@ -13,31 +13,24 @@ from netsquid.components.models.delaymodels import FibreDelayModel
 from uiiit.qconnection import EntanglingConnection
 
 __all__ = [
-    "QNetworkUniform"
+    "QNetwork"
     ]
 
-class QNetworkUniform:
+class QNetwork:
     """Factory to create a network made of quantum repeaters.
 
     Parameters
     ----------
-    node_distance : float
-        Distance between adjacent nodes [km].
-    node_distance_error : float
-        Add a random distance randomly drawn from -node_distance_error/2 and
-        node_distance_error/2 to the actual distance between any two nodes [km].
     source_frequency : float
         Frequency at which sources generate qubits [Hz].
     qerr_model: :class:`netsquid.components.models.qerrormodels.QuantumErrorModel`
         The quantum error model to use.
     """
-    def __init__(self, node_distance, node_distance_error, source_frequency, qerr_model):
-        self._node_distance = node_distance
-        self._node_distance_error = node_distance_error
+    def __init__(self, source_frequency, qerr_model):
         self._source_frequency = source_frequency
         self._qerr_model = qerr_model
 
-    def make_network(self, name, qrepeater_factory, topology):
+    def make_network(self, name, qrepeater_factory, topology, topography):
         """Create a quantum network with the class-specified characteristics. 
 
         Parameters
@@ -47,7 +40,9 @@ class QNetworkUniform:
         qrepeater_factory : :class:`~uiiit.topology.QRepeater`
             Quantum repeater factory.
         topology : :class:`~uiiit.topology.Topology`
-            Network topology.
+            Network topology (logical).
+        topography : :class:`~uiiit.topology.Topography`
+            Network topography (physical).
 
         Returns
         -------
@@ -71,6 +66,10 @@ class QNetworkUniform:
 
         # Create quantum and classical connections
         for [u, v] in topology.biedges():
+
+            length = topography.distance(u, v)
+            assert length == topography.distance(v, u)
+
             lhs_node, rhs_node = nodes[u], nodes[v]
             lhs_id, rhs_id = topology.incoming_id(u, v), topology.incoming_id(v, u)
 
@@ -82,7 +81,7 @@ class QNetworkUniform:
             # that also emits periodically entangled qubits
             qconn = EntanglingConnection(
                 name=f"qconn_{u}-{v}",
-                length=self._get_length(),
+                length=length,
                 source_frequency=self._source_frequency)
 
             # Add quantum noise model
@@ -99,22 +98,16 @@ class QNetworkUniform:
             rhs_node.ports[f"qcon{rhs_id}"].forward_input(rhs_node.qmemory.ports[f"qin{rhs_id}"])
 
             # Create a classical connection between the two nodes
-            # cconn = ClassicalConnection(name=f"cconn_{u}-{v}", length=self._node_distance)
             cconn = DirectConnection(
                 name=f"cconn_{u}-{v}",
                 channel_AtoB=ClassicalChannel(
-                    "Channel_A2B", length=self._node_distance,
+                    "Channel_A2B", length=length,
                     models={"delay_model": FibreDelayModel()}),
                 channel_BtoA=ClassicalChannel(
-                    "Channel_B2A", length=self._node_distance,
+                    "Channel_B2A", length=length,
                     models={"delay_model": FibreDelayModel()}))
             network.add_connection(
                 lhs_node, rhs_node, connection=cconn, label="classical",
                 port_name_node1=f"ccon{lhs_id}", port_name_node2=f"ccon{rhs_id}")
 
         return network
-
-    def _get_length(self):
-        return self._node_distance +\
-            random.uniform(-self._node_distance_error/2,
-                           self._node_distance_error/2)
