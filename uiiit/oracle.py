@@ -81,6 +81,10 @@ class Oracle(Protocol):
         
         """
 
+        # Check if this is a new timeslot
+        if not self._edges:
+            self.timeslot += 1
+
         # Add a new edge to the temporary graph for this timeslot
         for pos in positions:
             rx_node_id = self._topology.get_id_by_name(node_name)
@@ -130,9 +134,6 @@ class Oracle(Protocol):
         # Notify all nodes that they can proceed
         self.send_signal(Signals.SUCCESS)
 
-        # This is a new timeslot
-        self.timeslot += 1
-
         # Clear the edges with successful entanglement
         self._edges.clear()
 
@@ -168,8 +169,8 @@ class Oracle(Protocol):
             # Create a new reduced graph by removing unidirectional edges 
             graph_bi = graph_uni.extract_bidirectional()
 
-            logging.debug(f"timeslot #{self.timeslot}, graph {graph_uni}")
-            logging.debug(f"timeslot #{self.timeslot}, reduced graph {graph_bi}")
+            # logging.debug(f"timeslot #{self.timeslot}, graph {graph_uni}")
+            # logging.debug(f"timeslot #{self.timeslot}, reduced graph {graph_bi}")
             # graph_bi.save_dot(f"graph_bi{self.timeslot}")
 
             # Retrieve from the application the list of pairs with e2e entanglement
