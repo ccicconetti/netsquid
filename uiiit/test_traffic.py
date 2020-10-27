@@ -3,11 +3,16 @@ __version__ = "0.1.0"
 __license__ = "MIT"
 
 import unittest
-from traffic import SinglePairConstantApplication, SingleRandomPairs
+from traffic import (
+    SingleConstantApplication,
+    SingleRandomApplication,
+    MultiConstantApplication,
+    MultiRandomApplication
+)
 
 class TestApplication(unittest.TestCase):
-    def test_single_pair_constant_application(self):
-        app = SinglePairConstantApplication("App", "alice", "bob", 1)
+    def test_single_constant_application(self):
+        app = SingleConstantApplication("App", "alice", "bob", 1)
 
         self.assertEqual("App", app.name)
 
@@ -16,31 +21,31 @@ class TestApplication(unittest.TestCase):
             self.assertEqual(1, len(pairs))
             self.assertEqual(("alice", "bob", 1), pairs[0])
 
-        app2 = SinglePairConstantApplication("", "alice", "bob", 2)
+        app2 = SingleConstantApplication("", "alice", "bob", 2)
     
         self.assertEqual([("alice", "bob", 2)], app2.get_pairs(0))
 
         with self.assertRaises(ValueError):
-            SinglePairConstantApplication("", "alice", "alice", 2)
+            SingleConstantApplication("", "alice", "alice", 2)
 
-        _ = SinglePairConstantApplication("", "alice", "bob", 0)
-
-        with self.assertRaises(ValueError):
-            SinglePairConstantApplication("", "alice", "bob", -1)
-
-    def test_single_random_pairs(self):
-        with self.assertRaises(ValueError):
-            SingleRandomPairs("App", [], 1)
+        _ = SingleConstantApplication("", "alice", "bob", 0)
 
         with self.assertRaises(ValueError):
-            SingleRandomPairs("App", ["alice"], 1)
+            SingleConstantApplication("", "alice", "bob", -1)
 
-        _ = SingleRandomPairs("App", ["alice", "bob"], 0)
+    def test_single_random_application(self):
+        with self.assertRaises(ValueError):
+            SingleRandomApplication("App", [], 1)
 
         with self.assertRaises(ValueError):
-            SingleRandomPairs("App", ["alice", "bob"], -1)
+            SingleRandomApplication("App", ["alice"], 1)
 
-        app = SingleRandomPairs("App", ["alice", "bob"], 7)
+        _ = SingleRandomApplication("App", ["alice", "bob"], 0)
+
+        with self.assertRaises(ValueError):
+            SingleRandomApplication("App", ["alice", "bob"], -1)
+
+        app = SingleRandomApplication("App", ["alice", "bob"], 7)
 
         self.assertEqual("App", app.name)
 
@@ -57,7 +62,7 @@ class TestApplication(unittest.TestCase):
 
         node_names = set([f'{x}' for x in range(10)])
 
-        app2 = SingleRandomPairs("", node_names, 1)
+        app2 = SingleRandomApplication("", node_names, 1)
 
         found_names = set()
         for timeslot in range(100):
@@ -65,6 +70,59 @@ class TestApplication(unittest.TestCase):
             found_names.add(pair[0])
 
         self.assertEqual(node_names, found_names)
+
+    def test_multi_constant_application(self):
+        with self.assertRaises(ValueError):
+            MultiConstantApplication("App", [], 1)
+
+        with self.assertRaises(ValueError):
+            MultiConstantApplication(
+                "App", [["alice", "alice"]], 1)
+
+        with self.assertRaises(ValueError):
+            MultiConstantApplication(
+                "App", [["alice", "bob"], ["alice", "charlie"]], -1)
+
+        app = MultiConstantApplication(
+            "App", [["alice", "bob"], ["alice", "charlie"]], 7)
+
+        for t in range(10):
+            self.assertEqual(
+                [["alice", "bob", 7], ["alice", "charlie", 7]],
+                app.get_pairs(t)
+            )
+
+    def test_multi_random_application(self):
+        with self.assertRaises(ValueError):
+            MultiRandomApplication("App", [], 2, 1)
+
+        with self.assertRaises(ValueError):
+            MultiRandomApplication(
+                "App", [["alice", "alice"]], 2, 1)
+
+        with self.assertRaises(ValueError):
+            MultiRandomApplication(
+                "App", [["alice", "bob"], ["alice", "charlie"]], 2, -1)
+
+        with self.assertRaises(ValueError):
+            MultiRandomApplication(
+                "App", [["alice", "bob"], ["alice", "charlie"]], 3, 1)
+
+        app = MultiRandomApplication(
+            "App", [["alice", "bob"], ["alice", "charlie"], ["bob", "charlie"]], 2, 7)
+
+        everybody = {'alice', 'bob', 'charlie'}
+
+        found = set()
+        for t in range(10):
+            pairs = app.get_pairs(t)
+            self.assertEqual(2, len(pairs))
+            for pair in pairs:
+                self.assertEqual(7, pair[2])
+                found.add(pair[0])
+                found.add(pair[1])
+
+        self.assertEqual(everybody, found)
 
 if __name__ == '__main__':
     unittest.main()
