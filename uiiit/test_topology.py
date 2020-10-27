@@ -3,8 +3,12 @@ __version__ = "0.1.0"
 __license__ = "MIT"
 
 import unittest
+
+import os
 import tempfile
+
 from topology import Topology, EmptyTopology, TopographyDist, Topography2D
+from utils import TestDirectory
 
 class TestTopology(unittest.TestCase):
     brite_topo = \
@@ -538,7 +542,7 @@ Edges: (5):
         Topology("grid", size=4).save_dot("mygraph")
 
 class TestTopographyDist(unittest.TestCase):
-    def test_distance(self):
+    def test_make_from_topology(self):
         net = Topology("ring", size=4)
         topo = TopographyDist.make_from_topology(net, 5, 10)
 
@@ -563,6 +567,75 @@ class TestTopographyDist(unittest.TestCase):
         with self.assertRaises(KeyError):
             topo.distance(20, 10)
 
+class TestTopography2D(unittest.TestCase):
+    def test_invalid_ctor(self):
+        with self.assertRaises(ValueError):
+            Topography2D('notexisting')
+
+    def test_disc(self):
+        with self.assertRaises(ValueError):
+            Topography2D('disc', nodes=-1)
+        with self.assertRaises(ValueError):
+            Topography2D('disc', nodes=2, size=-1)
+
+        # threshold very high: no disconnected nodes
+        topo_connected = Topography2D('disc', nodes=10, size=1, threshold=2)
+
+        for u in range(10):
+            for v in range(10):
+                self.assertLessEqual(topo_connected.distance(u, v), 2)
+                self.assertLessEqual(topo_connected.distance(u, v),
+                                    topo_connected.distance(v, u))
+                u_pos = topo_connected[u]
+                v_pos = topo_connected[v]
+                expected_dist_sq = \
+                    (u_pos[0] - v_pos[0]) ** 2 + \
+                    (u_pos[1] - v_pos[1]) ** 2
+                self.assertAlmostEqual(expected_dist_sq,
+                                       topo_connected.distance(u, v) ** 2)
+        self.assertEqual(90, len(topo_connected.edges()))
+        self.assertEqual(0, len(topo_connected.orphans()))
+
+        with self.assertRaises(KeyError):
+            topo_connected[-1]
+
+        with self.assertRaises(KeyError):
+            topo_connected[11]
+
+        # threshold very low: all nodes are disconnected
+        topo_disconnected = Topography2D('disc', nodes=10, size=1, threshold=0)
+        self.assertEqual(0, len(topo_disconnected.edges()))
+        self.assertEqual(set(list(range(10))), topo_disconnected.orphans())
+
+        for u in range(10):
+            for v in range(10):
+                if u == v:
+                    self.assertEqual(0, topo_disconnected.distance(u, v))
+                else:
+                    with self.assertRaises(KeyError):
+                        topo_disconnected.distance(u, v)
+
+        # intermediate threshold: some nodes may be disconnected
+        topo_mix = Topography2D('disc', nodes=100, size=1, threshold=0.1)
+        for e in topo_mix.edges():
+            self.assertLessEqual(topo_mix.distance(e[0], e[1]), 0.1)
+
+    def test_square(self):
+        topo = Topography2D('square', nodes=100, size=1, threshold=1.41422)
+        self.assertEqual(0, len(topo.orphans()))
+        greater_than_one = []
+        for e in topo.edges():
+            self.assertLessEqual(topo.distance(e[0], e[1]), 1.41422)
+            if topo.distance(e[0], e[1]) > 1:
+                greater_than_one.append(e)
+        self.assertGreater(len(greater_than_one), 0)
+
+    def test_export(self):
+        topo = Topography2D('disc', nodes=10, size=1, threshold=1)
+        with TestDirectory() as testdir:
+            topo.export(testdir + "/nodes.dat", testdir + "/edges.dat")
+            self.assertTrue(os.path.exists(testdir + "/nodes.dat"))
+            self.assertTrue(os.path.exists(testdir + "/edges.dat"))
 
 if __name__ == '__main__':
     unittest.main()

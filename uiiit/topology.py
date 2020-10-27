@@ -1,6 +1,7 @@
 """This module specifies a class that models the topology of a network.
 """
 
+import math
 import subprocess
 import random
 
@@ -658,6 +659,9 @@ class TopographyDist(Topography):
     def distance(self, src, dst):
         """Return the distance from `src` to `dst`, always symmetric."""
 
+        if src == dst:
+            return 0
+
         return self._distance[src][dst]
 
     def set_distance(self, u, v, dist):
@@ -717,14 +721,114 @@ class TopographyDist(Topography):
             dist =  random.uniform(distance_min, distance_max)
             topo.set_distance(e[0], e[1], dist)
         return topo
+
+    def edges(self):
+        """Return the list of (bidirectional) edges."""
+
+        ret = []
+        for u, neigh in self._distance.items():
+            for v in neigh:
+                ret.append([u, v])
+        return ret
         
-class Topography2D:
-    """Physical layout where nodes are arranged.
+class Topography2D(TopographyDist):
+    """Physical layout of nodes on a plane.
 
     The position is identified by means of a (x, y) coordinated in a plane.
-    
+
+    Parameters
+    ----------
+    type : { 'disc', 'square' }
+        Type of layout.
+    nodes : int, optional
+        Number of nodes.
+    size : float, optional
+        Depends on the type: with a disc type this is the radius; with a
+        square type this is edge size.
+    threshold : float, optional
+        Connect two nodes if their distance is below this threshold.
+
+    Raises
+    ------
+    ValueError
+        If an invalid type is provided by the user, or if the arguments
+        are invalid.
     """
-    def __init__(self, type):
-        pass
+    def __init__(self, type, nodes=2, size=1, threshold=2):
+        super().__init__()
 
+        if nodes < 0:
+            raise ValueError(f'The number of nodes cannot be negative: {nodes}')
 
+        self._positions = dict()
+        if type == 'disc':
+            if size < 0:
+                raise ValueError(f'The disc radius cannot be negative: {size}')
+            for u in range(nodes):
+                dist_from_origin = random.uniform(0, size)
+                theta = random.uniform(0, math.pi)
+                self._positions[u] = (
+                    dist_from_origin * math.cos(theta),
+                    dist_from_origin * math.sin(theta)
+                )
+
+        elif type == 'square':
+            if size < 0:
+                raise ValueError(f'The square edge size cannot be negative: {size}')
+            for u in range(nodes):
+                self._positions[u] = (
+                    random.uniform(-size / 2, size / 2),
+                    random.uniform(-size / 2, size / 2)
+                )
+
+        else:
+            raise ValueError(f'Invalid Topography2D type: {type}')
+
+        self._make_edges(threshold)
+
+    def __getitem__(self, node):
+        """Return the node's position."""
+
+        return self._positions[node]
+
+    def orphans(self):
+        """"Return the list of disconnected nodes."""
+
+        ret = set()
+        for u in self._positions.keys():
+            if u not in self._distance:
+                ret.add(u)
+        return ret
+
+    def export(self, node_path, edge_path):
+        """Export the topography to the given text files.
+        
+        Parameters
+        ----------
+        node_path : str
+            The name of the file where to save the coordinates of nodes.
+        edge_path : str
+            The name of the file where to save the edges.
+
+        """
+
+        with open(node_path, 'w') as nodefp, open(edge_path, 'w') as edgefp:
+            for u, pos in self._positions.items():
+                nodefp.write(f'{u} {pos[0]}, {pos[1]}\n')
+            for e in self.edges():
+                u = e[0]
+                v = e[1]
+                u_pos = self._positions[u]
+                v_pos = self._positions[v]
+                edgefp.write(f'{u} {u_pos[0]} {u_pos[1]} {v} {v_pos[0]} {v_pos[1]}\n')
+
+    def _make_edges(self, threshold):
+        for u, u_pos in self._positions.items():
+            for v, v_pos in self._positions.items():
+                if u == v:
+                    continue
+                dist = math.sqrt(\
+                    (u_pos[0] - v_pos[0]) ** 2 +\
+                    (u_pos[1] - v_pos[1]) ** 2)
+                if dist <= threshold:
+                    self.set_distance(u, v, dist)
