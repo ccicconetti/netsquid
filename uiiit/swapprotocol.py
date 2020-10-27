@@ -156,49 +156,50 @@ class SwapProtocol(NodeProtocol):
                         continue
 
                     msg = port.rx_input()
-                    if msg.meta['destination'] == self.node.name:
-                        #
-                        # The message reached its final destination: correct qubit
-                        #
-
-                        # From NetSquid documentation:
-                        #
-                        # https://docs.netsquid.org/latest-release/api_components/netsquid.components.channel.html
-                        #
-                        # If multiple items are send onto a channel during
-                        # the same time instance, then all items become part
-                        # of the same message with the same arrival time.
-                        # When getting a message with multiple items, all
-                        # items can be retrieved at once, or individual
-                        # items can be got by their indices.
-                        #
-                        # Thus, we might have to unpack the items at pairs.
-                        #
-                        # NOTE that this way the metadata info has been lost.
-                        #
-                        program_executed = None
-                        for i in range(0, len(msg.items), 2):
-                            m0, m1 = msg.items[i:i+2]
-                            all_received, program_executed = self._handle_correct_msg(msg.meta['path'], m0, m1)
-
-                        assert program_executed is not None
-
-                        # Execute the quantum program only if there are
-                        # corrections to apply.
-                        if program_executed:
-                            yield self.await_program(self.node.qmemory, await_done=True, await_fail=True)
-
-                        # In any case, if all the messages expected to be received
-                        # have been received, we can notify the Oracle that the
-                        # e2e entanglement is complete.
-                        if all_received:
-                            logging.debug(f"{ns.sim_time():.1f}: {self.node.name} corrections applied")
-                            self._oracle.success(msg.meta['path'])
-                            self.send_signal(Signals.SUCCESS)
-                            self._rx_messages.clear()
-                    else:
-                        # we must forward the message to its next hop
+                    if msg.meta['destination'] != self.node.name:
+                        # We must forward the message to its next hop
                         self._forward(msg)
+                        continue
+
+                    #
+                    # The message reached its final destination: correct qubit
+                    #
+
+                    # From NetSquid documentation:
+                    #
+                    # https://docs.netsquid.org/latest-release/api_components/netsquid.components.channel.html
+                    #
+                    # If multiple items are send onto a channel during
+                    # the same time instance, then all items become part
+                    # of the same message with the same arrival time.
+                    # When getting a message with multiple items, all
+                    # items can be retrieved at once, or individual
+                    # items can be got by their indices.
+                    #
+                    # Thus, we might have to unpack the items at pairs.
+                    #
+                    # NOTE that this way the metadata info has been lost.
+                    #
+                    program_executed = None
+                    for i in range(0, len(msg.items), 2):
+                        m0, m1 = msg.items[i:i+2]
+                        all_received, program_executed = self._handle_correct_msg(msg.meta['path'], m0, m1)
+
+                    assert program_executed is not None
+
+                    # Execute the quantum program only if there are
+                    # corrections to apply.
+                    if program_executed:
+                        yield self.await_program(self.node.qmemory, await_done=True, await_fail=True)
+
+                    # In any case, if all the messages expected to be received
+                    # have been received, we can notify the Oracle that the
+                    # e2e entanglement is complete.
+                    if all_received:
+                        logging.debug(f"{ns.sim_time():.1f}: {self.node.name} corrections applied")
+                        self._oracle.success(msg.meta['path'])
+                        self.send_signal(Signals.SUCCESS)
+                        del self._rx_messages[msg.meta['path']]
 
     def _handle_correct_msg(self, path, m0, m1):
         """Handle a new incoming correction message `msg`.

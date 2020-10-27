@@ -91,16 +91,74 @@ class Oracle(Protocol):
         self._pending_nodes.remove(node_name)
 
         # Do nothing if some nodes did not mark their successes/failures yet
-        if self._pending_nodes:
-            return
+        if not self._pending_nodes:
+            # All nodes have marked their successes/failures, time to do routing!
+            self._routing()
 
-        #
-        # All nodes have marked their successes/failures, time to do routing!
-        #
+    def _routing(self):
+        """Perform routing based on the info received by the nodes."""
 
         # Remove previous entanglement data structure
         self.mem_pos.clear()
         self.path.clear()
+
+        # Seek end-to-end entanglement paths with the current edges
+        # The end-to-end pairs from the applications are served round-robin
+        e2e_pairs = self._app.get_pairs(self.timeslot)
+        path_id = 0
+        cur_pair_ndx = len(e2e_pairs) # Beyond last element
+        while e2e_pairs:
+            # Wrap-around if the end is reached
+            if cur_pair_ndx == len(e2e_pairs):
+                cur_pair_ndx = 0 # Wrap-around
+            cur_pair = e2e_pairs[cur_pair_ndx]
+            if self._add_path(cur_pair[0], cur_pair[1], path_id) == False:
+                # The current pair cannot be served in the reduced graph
+                del e2e_pairs[cur_pair_ndx]
+                continue
+            if cur_pair[2] == 1:
+                # All the entanglements have been served
+                del e2e_pairs[cur_pair_ndx]
+            else:
+                if cur_pair[2] != 0: # Special value: means infinite
+                    e2e_pairs[cur_pair_ndx] = (cur_pair[0], cur_pair[1], cur_pair[2]-1)
+                cur_pair_ndx += 1
+            path_id += 1
+    
+        logging.debug(f"timeslot #{self.timeslot}, found {path_id} end-to-end entanglement paths")
+
+        # Notify all nodes that they can proceed
+        self.send_signal(Signals.SUCCESS)
+
+        # This is a new timeslot
+        self.timeslot += 1
+
+        # Clear the edges with successful entanglement
+        self._edges.clear()
+
+        # Wait for all nodes again
+        self._pending_nodes = set(self._topology.node_names)
+
+    def _add_path(self, alice_name, bob_name, path_id):
+        """Try to find a new end-to-end entanglement path.
+
+        If a path is found, then `self.mem_pos` and `self.path` are
+        added a new element, and the edges used are pruned from `self._edges`.
+
+        Parameters
+        ----------
+        alice_name : str
+            The name of the first node of the end-to-end entanglement path.
+        bob_name : str
+            The name of the first node of the end-to-end entanglement path.
+        path_id : int
+            The identifier of the path to use.
+        
+        Returns
+        -------
+            True if a path was found, False otherwise.
+
+        """
 
         try:
             # Create a new graph with only the edges where entanglement has succeeded
@@ -115,10 +173,6 @@ class Oracle(Protocol):
             # graph_bi.save_dot(f"graph_bi{self.timeslot}")
 
             # Retrieve from the application the list of pairs with e2e entanglement
-            pairs = self._app.get_pairs(self.timeslot)
-            assert len(pairs) == 1
-            alice_name = pairs[0][0]
-            bob_name = pairs[0][1]
             alice = graph_bi.get_id_by_name(alice_name) if alice_name in graph_bi.node_names else None
             bob = graph_bi.get_id_by_name(bob_name) if bob_name in graph_bi.node_names else None
 
@@ -129,7 +183,10 @@ class Oracle(Protocol):
                 prev, _ = graph_bi.spt(alice)
             
             if prev is None or prev[bob] is None:
-                logging.debug(f"timeslot #{self.timeslot}, no way to create e2e entanglement between {alice_name} and {bob_name}")
+                logging.debug((f"timeslot #{self.timeslot}, no way to create an "
+                               f"e2e entanglement path {path_id} "
+                               f"between {alice_name} and {bob_name}"))
+                return False
 
             else:
                 # There is a path between alice and bob
@@ -139,7 +196,7 @@ class Oracle(Protocol):
                 swap_nodes = Topology.traversing(prev, bob, alice)
                 alice_nxt = swap_nodes[-1] if swap_nodes else bob
                 bob_prv = swap_nodes[0] if swap_nodes else alice
-                self.path[0] = [
+                self.path[path_id] = [
                     alice_name,
                     bob_name,
                     self._topology.incoming_id(alice, alice_nxt),
@@ -153,7 +210,10 @@ class Oracle(Protocol):
                 # an entangling connection, hence there is no need to send
                 # out corrections, and the qubits received can be used immediately
                 if not swap_nodes:
-                    self.success(0)
+                    self._edges.remove([alice, bob])
+                    self._edges.remove([bob, alice])
+                    self.success(path_id)
+                    return True
 
                 for i in range(len(swap_nodes)):
                     cur = swap_nodes[i]
@@ -161,30 +221,30 @@ class Oracle(Protocol):
                     nxt = alice if i == (len(swap_nodes)-1) else swap_nodes[i+1]
                     prv_pos = self._topology.incoming_id(cur, prv)
                     nxt_pos = self._topology.incoming_id(cur, nxt)
-                    logging.debug((f"timeslot #{self.timeslot}, e2e entanglement between {alice_name} and {bob_name}: "
-                                f"on node {cur} entangle node {prv} (mem pos {prv_pos}) and node {nxt} (mem pos {nxt_pos})"))
+                    logging.debug(
+                        (f"timeslot #{self.timeslot}, e2e entanglement path {path_id} "
+                         f"between {alice_name} and {bob_name}: "
+                         f"on node {cur} entangle node {prv} (mem pos {prv_pos}) "
+                         f"and node {nxt} (mem pos {nxt_pos})"))
+
+                    self._edges.remove([cur, prv])
+                    self._edges.remove([prv, cur])
 
                     cur_name = self._topology.get_name_by_id(cur)
-                    if cur not in self.mem_pos:
+                    if cur_name not in self.mem_pos:
                         self.mem_pos[cur_name] = []
                     self.mem_pos[cur_name].append([
                         prv_pos, nxt_pos,
                         self._topology.get_name_by_id(bob),
-                        0])
+                        path_id])
+
+                self._edges.remove([alice, alice_nxt])
+                self._edges.remove([alice_nxt, alice])                
+
         except:
-            logging.debug(f"timeslot #{self.timeslot}, reduced graph is empty")
+            return False
 
-        # Notify all nodes that they can proceed
-        self.send_signal(Signals.SUCCESS)
-
-        # This is a new timeslot
-        self.timeslot += 1
-
-        # Clear the edges with successful entanglement
-        self._edges.clear()
-
-        # Wait for all nodes again
-        self._pending_nodes = set(self._topology.node_names)
+        return True
 
     def channel_id(self, src, dst):
         """Return the channel identifier where to send a message.
@@ -238,7 +298,8 @@ class Oracle(Protocol):
         if fidelity > 0.75:
             self._stat.count("success-0.75", 1)
 
-        logging.debug((f"timeslot #{self.timeslot}, e2e entanglement between "
-                f"{path[0]}:{path[2]} and {path[1]}:{path[3]} (distance {dist}): "
+        logging.debug((f"timeslot #{self.timeslot}, e2e entanglement {path_id} "
+                f"between {path[0]}:{path[2]} and {path[1]}:{path[3]} "
+                f"(distance {dist}): "
                 f"fidelity {fidelity:.3f}, latency {latency:.3f} "
                 f"swaps {path[4]}"))
