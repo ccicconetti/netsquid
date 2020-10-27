@@ -318,6 +318,9 @@ class Oracle(Protocol):
             self._stat.count("success-0.75", 1)
 
         logging.debug((f"{ns.sim_time():.1f}: "
-                       f"timeslot #{self.timeslot}, e2e entanglement {path_id} "
+                       f"timeslot #{self.timeslot}, e2e entanglement path {path_id} "
                        f"{path}, distance {dist}: "
                        f"fidelity {fidelity:.3f}, latency {latency:.3f}"))
+        
+        # Remove the path once it is found to be successful
+        del self.path[path_id]

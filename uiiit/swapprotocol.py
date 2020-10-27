@@ -120,6 +120,8 @@ class SwapProtocol(NodeProtocol):
             # Wait until any of the two events happen
             expression = yield qevent | cevent
 
+            # print(expression.triggered_events[-1].source)
+
             if expression.first_term.value:
                 # Qubits received on all the memory ports
                 logging.debug((f"{ns.sim_time():.1f}: {self._qmem.name} "
@@ -192,70 +194,77 @@ class SwapProtocol(NodeProtocol):
                     #
                     # NOTE that this way the metadata info has been lost.
                     #
-                    program_executed = None
-                    for i in range(0, len(msg.items), 2):
-                        m0, m1 = msg.items[i:i+2]
-                        all_received, program_executed = self._handle_correct_msg(msg.meta['path'], m0, m1)
 
-                    assert program_executed is not None
+                    assert len(msg.items) == 2, \
+                        (f"expecting a Message with exactly 2 items, "
+                         f"got one with {len(msg.items)}")
+                    path_id = msg.meta['path']
 
-                    # Execute the quantum program only if there are
-                    # corrections to apply.
-                    if program_executed:
-                        yield self.await_program(self.node.qmemory, await_done=True, await_fail=True)
+                    if path_id not in self._rx_messages:
+                        self._rx_messages[path_id] = SwapProtocol.PathInfo(self._oracle.timeslot)
 
-                    # In any case, if all the messages expected to be received
-                    # have been received, we can notify the Oracle that the
-                    # e2e entanglement is complete.
+                    path = self._rx_messages[path_id]
+                    assert self._oracle.timeslot == path.timeslot
+
+                    m0, m1 = msg.items[0:2]
+                    path.incr(m1, m0)
+
+                    # Check if all the messages for all the paths terminating
+                    # in this node have been received: if yes, then correct
+                    # all local qubits based on the items received in the
+                    # messages for the respective paths. Otherwise, we wait
+                    # for more messages to arrive.
+
+                    all_received = True
+                    paths = []
+                    for cur_path_id, cur_path in self._oracle.path.items():
+                        if cur_path.bob_name == self.node.name:
+                            if cur_path_id not in self._rx_messages or \
+                                self._rx_messages[cur_path_id].counter < cur_path.num_swaps:
+                                all_received = False
+                                break
+                            paths.append(cur_path_id)
+
                     if all_received:
-                        logging.debug(f"{ns.sim_time():.1f}: {self.node.name} corrections applied")
-                        self._oracle.success(msg.meta['path'])
-                        self.send_signal(Signals.SUCCESS)
-                        del self._rx_messages[msg.meta['path']]
+                        for cur_path_id in paths:
+                            if self._correct(cur_path_id):
+                                yield self.await_program(
+                                    self.node.qmemory,
+                                    await_done=True, await_fail=True)
 
-    def _handle_correct_msg(self, path, m0, m1):
-        """Handle a new incoming correction message `msg`.
+                            # Notify the Oracle
+                            logging.debug((f"{ns.sim_time():.1f}: {self.node.name} "
+                                           f"path {cur_path_id} corrections applied"))
+                            del self._rx_messages[cur_path_id]
+                            self._oracle.success(cur_path_id)
+                            self.send_signal(Signals.SUCCESS)
+                           
+    def _correct(self, path_id):
+        """Execute the correction program for a given path.
         
         Parameters
         ----------
-        path
+        path_id
             The identifier of the path in this timeslot.
-        m0
-            The first correction factor (Z gate).
-        m1
-            The second correction factor (X gate).
         
         Returns
         -------
-        (bool, bool)
-            The first item of the pair is True if all the corrections have
-            been received. The second item is True if a quantum program has
-            been put into execution (and it has to be waited for). 
+        bool
+            True if the program has been executed.
 
         """
 
-        if path not in self._rx_messages:
-            self._rx_messages[path] = SwapProtocol.PathInfo(self._oracle.timeslot)
+        path_info = self._rx_messages[path_id]
+        mem_pos = self._oracle.path[path_id].bob_edge_id
 
-        assert self._oracle.timeslot == self._rx_messages[path].timeslot
-
-        path_info = self._rx_messages[path]
-        path_length = self._oracle.path[path].num_swaps
-        mem_pos = self._oracle.path[path].bob_edge_id
-
-        path_info.incr(m1, m0)
-        
-        if path_info.counter < path_length:
-            return (False, False)
-
-        assert path_info.counter == path_length
         if path_info.x_corr or path_info.z_corr:
             self._correct_program.set_corrections(path_info.x_corr, path_info.z_corr)
             logging.debug((f"{ns.sim_time():.1f}: {self.node.name} ready to apply corrections "
-                            f"for path {path} to qubit {mem_pos} (status {str(self.node.qmemory.status)})"))
+                            f"for path {path_id} to qubit {mem_pos} (status {str(self.node.qmemory.status)})"))
             self.node.qmemory.execute_program(self._correct_program, qubit_mapping=[mem_pos])
-            return (True, True)
-        return (True, False)
+            return True
+
+        return False
 
     def _forward(self, msg):
         """Forward the given message `msg` to its destination node."""
