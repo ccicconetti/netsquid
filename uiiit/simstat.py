@@ -73,6 +73,9 @@ class Stat:
     def __eq__(self, other):
         """Two `Stat` objects are equal if they have the same parameters."""
 
+        if other is None:
+            return False
+
         return self._conf.all_params() == other._conf.all_params()
 
     def conf(self):
