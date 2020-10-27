@@ -1,6 +1,8 @@
 """This module includes some general-purpose utility functions and classes
 """
 
+import os
+import shutil
 import socket
 import pickle
 import logging
@@ -10,6 +12,7 @@ from queue import Empty
 __all__ = [
     "ParallerRunner",
     "SocketCollector",
+    "TestDirectory",
     ]
 
 class SocketSender:
@@ -270,3 +273,19 @@ class ParallerRunner:
             ret.append(qout.get_nowait())
 
         return ret
+
+class TestDirectory:
+    """Create a directory for tests that is removed upon exiting the context."""
+
+    def __init__(self):
+        self._path = 'test_directory'
+        self._rmdir()
+        os.mkdir(self._path)
+    def __enter__(self):
+        return self._path
+    def __exit__(self, type, value, traceback):
+        self._rmdir()
+        pass
+    def _rmdir(self):
+        if os.path.exists(self._path):
+            shutil.rmtree(self._path)
