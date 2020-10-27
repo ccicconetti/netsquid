@@ -281,7 +281,12 @@ class Topology:
         return self._edges 
 
     def biedges(self):
-        """Return the list of pairs of node which have a bidirectional connection
+        """Return the list of pairs of node which have a bidirectional connection.
+
+        A given pair of node (u,v) is returned only once, i.e., the returned
+        list does not contain duplicates. Also, it is sorted in lexycographic
+        order, and each pair is also sorted, thus the function returns a
+        stable dataset.
         """
 
         # Lazy initialization
