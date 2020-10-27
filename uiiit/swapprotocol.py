@@ -14,15 +14,20 @@ __all__ = [
 
 class SwapProtocol(NodeProtocol):
     class PathInfo:
-        def __init__(self):
+        def __init__(self, timeslot):
             self.x_corr = 0
             self.z_corr = 0
             self.counter = 0
+            self.timeslot = timeslot
 
         def incr(self, x_corr, z_corr):
             self.counter += 1
             self.x_corr += x_corr
             self.z_corr += z_corr
+
+        def __repr__(self):
+            return (f'timeslot {self.timeslot}, counter {self.counter}, '
+                    f'#corrections {self.x_corr} (X) {self.z_corr} (Z)')
 
     class SwapProgram(QuantumProgram):
         """Quantum processor program that measures two qubits."""
@@ -121,6 +126,11 @@ class SwapProtocol(NodeProtocol):
                             f"{self._qmem.num_used_positions}/{self._qmem.num_positions} "
                             f"received (empty: {self._qmem.unused_positions})"))
 
+                # All previously received messages should be entirely consumed
+                assert not self._rx_messages, \
+                    (f'{self.node.name} has non-empty RX messages upon the '
+                     f'beginning of a new timeslot: {self._rx_messages}')
+
                 positions = []
                 for pos in range(self._qmem.num_positions):
                     if pos not in self._qmem.unused_positions:
@@ -155,7 +165,9 @@ class SwapProtocol(NodeProtocol):
                     if not port.input_queue:
                         continue
 
+                    assert len(port.input_queue) == 1
                     msg = port.rx_input()
+                    logging.debug(f"{ns.sim_time():.1f}: {self.node.name} received message: {msg}")
                     if msg.meta['destination'] != self.node.name:
                         # We must forward the message to its next hop
                         self._forward(msg)
@@ -223,7 +235,9 @@ class SwapProtocol(NodeProtocol):
         """
 
         if path not in self._rx_messages:
-            self._rx_messages[path] = SwapProtocol.PathInfo()
+            self._rx_messages[path] = SwapProtocol.PathInfo(self._oracle.timeslot)
+
+        assert self._oracle.timeslot == self._rx_messages[path].timeslot
 
         path_info = self._rx_messages[path]
         path_length = self._oracle.path[path][4]

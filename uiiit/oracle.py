@@ -129,7 +129,8 @@ class Oracle(Protocol):
                 cur_pair_ndx += 1
             path_id += 1
     
-        logging.debug(f"timeslot #{self.timeslot}, found {path_id} end-to-end entanglement paths")
+        logging.debug((f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, "
+                       f"found {path_id} end-to-end entanglement paths"))
 
         # Notify all nodes that they can proceed
         self.send_signal(Signals.SUCCESS)
@@ -184,8 +185,8 @@ class Oracle(Protocol):
                 prev, _ = graph_bi.spt(alice)
             
             if prev is None or prev[bob] is None:
-                logging.debug((f"timeslot #{self.timeslot}, no way to create an "
-                               f"e2e entanglement path {path_id} "
+                logging.debug((f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, "
+                               f"no way to create an e2e entanglement path {path_id} "
                                f"between {alice_name} and {bob_name}"))
                 return False
 
@@ -223,7 +224,8 @@ class Oracle(Protocol):
                     prv_pos = self._topology.incoming_id(cur, prv)
                     nxt_pos = self._topology.incoming_id(cur, nxt)
                     logging.debug(
-                        (f"timeslot #{self.timeslot}, e2e entanglement path {path_id} "
+                        (f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, "
+                         f"e2e entanglement path {path_id} "
                          f"between {alice_name} and {bob_name}: "
                          f"on node {cur} entangle node {prv} (mem pos {prv_pos}) "
                          f"and node {nxt} (mem pos {nxt_pos})"))
@@ -299,8 +301,9 @@ class Oracle(Protocol):
         if fidelity > 0.75:
             self._stat.count("success-0.75", 1)
 
-        logging.debug((f"timeslot #{self.timeslot}, e2e entanglement {path_id} "
-                f"between {path[0]}:{path[2]} and {path[1]}:{path[3]} "
-                f"(distance {dist}): "
-                f"fidelity {fidelity:.3f}, latency {latency:.3f} "
-                f"swaps {path[4]}"))
+        logging.debug((f"{ns.sim_time():.1f}: "
+                       f"timeslot #{self.timeslot}, e2e entanglement {path_id} "
+                       f"between {path[0]}:{path[2]} and {path[1]}:{path[3]} "
+                       f"(distance {dist}): "
+                       f"fidelity {fidelity:.3f}, latency {latency:.3f} "
+                       f"swaps {path[4]}"))
