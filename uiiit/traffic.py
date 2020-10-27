@@ -51,28 +51,33 @@ class SingleApplication(Application):
     ----------
     name : str
         A name to identify this application.
-    min_qubits : int
-        The minimum number of qubits required.
+    max_qubits : int
+        The maximum number of qubits required.
+
+    Raises
+    ------
+    ValueError
+        The maximum number of qubits required is negative.
 
     """
-    def __init__(self, name, min_qubits):
+    def __init__(self, name, max_qubits):
         super().__init__(name)
 
-        if min_qubits <= 0:
-            raise ValueError("Cannot have zero or negative number of qubits specified")
+        if max_qubits < 0:
+            raise ValueError("Cannot have negative number of qubits specified")
 
-        self._min_qubits = min_qubits
+        self._max_qubits = max_qubits
 
     def get_pairs(self, timeslot):
         # timeslot is unused
         pair = self._get_single_pair()
-        return [(pair[0], pair[1], self._min_qubits)]
+        return [(pair[0], pair[1], self._max_qubits)]
 
     def _get_single_pair(self):
         raise NotImplementedError("Class SingleApplication should be inherited")
 
 class SinglePairConstantApplication(SingleApplication):
-    """Return always the same pair, all with the same minimum number of qubits.
+    """Return always the same pair, all with the same maximum number of qubits.
 
     Parameters
     ----------
@@ -82,13 +87,13 @@ class SinglePairConstantApplication(SingleApplication):
         The name of the first end-point
     bob : str
         The name of the second end-point
-    min_qubits : int
-        The minimum number of qubits required.
+    max_qubits : int
+        The maximum number of qubits required.
     
     """
 
-    def __init__(self, name, alice, bob, min_qubits):
-        super().__init__(name, min_qubits)
+    def __init__(self, name, alice, bob, max_qubits):
+        super().__init__(name, max_qubits)
 
         if alice == bob:
             raise ValueError(f"Cannot use the same name in SinglePairConstantApplication: {alice}")
@@ -100,7 +105,7 @@ class SinglePairConstantApplication(SingleApplication):
         return [self._alice, self._bob]
 
 class SingleRandomPairs(SingleApplication):
-    """Return a random pair from a set, all with the same minimum number of qubits.
+    """Return a random pair from a set, all with the same maximum number of qubits.
 
     Parameters
     ----------
@@ -108,13 +113,13 @@ class SingleRandomPairs(SingleApplication):
         A name to identify this application.
     node_names : iterable
         The possible names from which to extract the pair
-    min_qubits : int
-        The minimum number of qubits required.
+    max_qubits : int
+        The maximum number of qubits required.
     
     """
 
-    def __init__(self, name, node_names, min_qubits):
-        super().__init__(name, min_qubits)
+    def __init__(self, name, node_names, max_qubits):
+        super().__init__(name, max_qubits)
 
         self._node_names = set(node_names)
 

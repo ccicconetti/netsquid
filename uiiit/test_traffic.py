@@ -23,8 +23,7 @@ class TestApplication(unittest.TestCase):
         with self.assertRaises(ValueError):
             SinglePairConstantApplication("", "alice", "alice", 2)
 
-        with self.assertRaises(ValueError):
-            SinglePairConstantApplication("", "alice", "bob", 0)
+        _ = SinglePairConstantApplication("", "alice", "bob", 0)
 
         with self.assertRaises(ValueError):
             SinglePairConstantApplication("", "alice", "bob", -1)
@@ -36,8 +35,7 @@ class TestApplication(unittest.TestCase):
         with self.assertRaises(ValueError):
             SingleRandomPairs("App", ["alice"], 1)
 
-        with self.assertRaises(ValueError):
-            SingleRandomPairs("App", ["alice", "bob"], 0)
+        _ = SingleRandomPairs("App", ["alice", "bob"], 0)
 
         with self.assertRaises(ValueError):
             SingleRandomPairs("App", ["alice", "bob"], -1)
