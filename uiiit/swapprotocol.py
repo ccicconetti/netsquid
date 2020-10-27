@@ -240,8 +240,8 @@ class SwapProtocol(NodeProtocol):
         assert self._oracle.timeslot == self._rx_messages[path].timeslot
 
         path_info = self._rx_messages[path]
-        path_length = self._oracle.path[path][4]
-        mem_pos = self._oracle.path[path][3]
+        path_length = self._oracle.path[path].num_swaps
+        mem_pos = self._oracle.path[path].bob_edge_id
 
         path_info.incr(m1, m0)
         
