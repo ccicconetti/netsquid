@@ -16,18 +16,19 @@ __all__ = [
 class Oracle(Protocol):
     class Path:
         def __init__(self, alice_name, bob_name,
-                     alice_edge_id, bob_edge_id, num_swaps, timestamp):
+                     alice_edge_id, bob_edge_id,
+                     swap_nodes, timestamp):
             self.alice_name    = alice_name
             self.bob_name      = bob_name
             self.alice_edge_id = alice_edge_id
             self.bob_edge_id   = bob_edge_id
-            self.num_swaps     = num_swaps
+            self.swap_nodes    = swap_nodes
             self.timestamp     = timestamp
 
         def __repr__(self):
             return (f'path between {self.alice_name} ({self.alice_edge_id}) '
                     f'and {self.bob_name} ({self.bob_edge_id}), with '
-                    f'{self.num_swaps} swaps, '
+                    f'{len(self.swap_nodes)} swaps, '
                     f'established at time {self.timestamp:.1f}')
 
     """Network oracle: knows everything, can communicate at zero delay.
@@ -71,6 +72,7 @@ class Oracle(Protocol):
         super().__init__(name="Oracle")
 
         self._topology = topology
+        self._topology_hops = Topology('edges', edges=topology.edges())
         self._network  = network
         self._app      = app
         self._stat     = stat
@@ -219,7 +221,7 @@ class Oracle(Protocol):
                     bob_name,
                     self._topology.incoming_id(alice, alice_nxt),
                     self._topology.incoming_id(bob, bob_prv),
-                    graph_bi.distance(alice, bob) - 1,
+                    swap_nodes,
                     ns.sim_time()
                 )
                 # logging.debug(f"timeslot #{self.timeslot}, path {bob}, {', '.join([str(x) for x in swap_nodes])}, {alice}")
@@ -293,9 +295,7 @@ class Oracle(Protocol):
         path = self.path[path_id]
 
         # Distance on the original topology of the two end nodes
-        dist = self._topology.distance(
-            self._topology.get_id_by_name(path.alice_name),
-            self._topology.get_id_by_name(path.bob_name))
+        dist = len(path.swap_nodes)
 
         # Measure fidelity
         qubit_a, = self._network.nodes[path.alice_name].qmemory.peek([path.alice_edge_id])
@@ -309,8 +309,12 @@ class Oracle(Protocol):
         latency = ns.sim_time() - path.timestamp
         self._stat.add(f"latency-{dist}", latency)
 
-        # Record the number of swap required to realise e2e entanglement.
-        self._stat.add(f"swap-{dist}", path.num_swaps)
+        # Record the physical distance, in the shorted path, of e2e entanglement.
+        self._stat.add(f"distance-{dist}",
+                       self._topology.distance_path(
+                           self._topology.get_id_by_name(path.bob_name),
+                           self._topology.get_id_by_name(path.alice_name),
+                           path.swap_nodes))
 
         # Counter of successful e2e entanglements.
         self._stat.count("success", 1)

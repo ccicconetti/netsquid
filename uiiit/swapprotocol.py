@@ -237,7 +237,7 @@ class SwapProtocol(NodeProtocol):
                 m0, m1 = msg.items[0:2]
                 path.incr(m1, m0)
 
-                if path.counter == self._oracle.path[path_id].num_swaps:
+                if path.counter == len(self._oracle.path[path_id].swap_nodes):
                     if qprog_exec:
                         qprog_queue.append(path_id)
                     else:
