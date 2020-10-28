@@ -299,6 +299,32 @@ Edges: (5):
 
         self.assertEqual({'Donald', 'Goofy', 'Mickey'}, net2.node_names)
 
+    def test_copy_weights(self):
+        # 0 --> 1 --> 2
+        edges = [[1, 0], [2, 1]]
+        net1 = Topology("edges", edges=edges)
+        net1.change_weight(0, 1, 10)
+        net1.change_weight(1, 2, 100)
+
+        net2 = Topology("edges", edges=edges)
+        net2.copy_weights(net1)
+        self.assertEqual(10, net2.weight(0, 1))
+        self.assertEqual(100, net2.weight(1, 2))
+
+        net3 = Topology("edges", edges=[[1, 0]])
+        net3.copy_weights(net1)
+        self.assertEqual(10, net3.weight(0, 1))
+        with self.assertRaises(KeyError):
+            net3.weight(1, 2)
+
+        with self.assertRaises(KeyError):
+            net1.copy_weights(net3)
+
+        net4 = Topology("edges", edges=edges, default_weight=7)
+        net5 = Topology("edges", edges=edges)
+        net5.copy_weights(net4)
+        self.assertEqual(14, net5.distance(0, 2))
+
     def test_extract_bidirectional(self):
         net = Topology("edges", edges=[
             [0, 1],
@@ -350,6 +376,16 @@ Edges: (5):
 
         with self.assertRaises(EmptyTopology):
             _ = uni.extract_bidirectional()
+
+    def test_extract_bidirectional_weights(self):
+        # 0 <--> 1 <--> 2
+        uni = Topology("edges", edges=[[1, 0], [0, 1], [1, 2], [2, 1]])
+        uni.change_weight(0, 1, 10)
+        uni.change_weight(1, 2, 100)
+        self.assertEqual(110, uni.distance(0, 2))
+
+        net_bi = uni.extract_bidirectional()
+        self.assertEqual(110, net_bi.distance(0, 2))
 
     def test_copy_names_bigger(self):
         full = Topology("grid", size=3)

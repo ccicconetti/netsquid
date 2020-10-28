@@ -221,6 +221,28 @@ class Topology:
         
         self.assign_names(node_names)
 
+    def copy_weights(self, other):
+        """Copy the weights from another topology.
+
+        Parameters
+        ----------
+        other : `Topology`
+            The topology from which to re-use names.
+        
+        Raises
+        ------
+        KeyError
+            If `other` does not define some of the nodes that are in the
+            current `Topology` object.
+        
+        """
+
+        self._default_weight = other._default_weight
+        for e in self.edges():
+            weight = other.weight(e[1], e[0])
+            if weight != self._default_weight:
+                self.change_weight(e[1], e[0], weight)
+
     def get_name_by_id(self, node_id):
         """Return the name corresponding to the given identifier.
 
@@ -501,6 +523,7 @@ class Topology:
 
         """
 
+        # Find bi-directional edges
         nodes_kept = set()
         edges = []
         for u, neigh in self._graph.items():
@@ -514,13 +537,21 @@ class Topology:
         if not edges:
             raise EmptyTopology()
         
+        # Create a new topology with the bi-directional edges only
         topo = Topology("edges", edges=edges)
         
+        # Copy names
         node_names = dict()
         for node_id in nodes_kept:
             node_names[node_id] = self.get_name_by_id(node_id)
-
         topo.assign_names(node_names)
+
+        # Copy weights
+        topo._default_weight = self._default_weight
+        for e in edges:
+            weight = self.weight(e[1], e[0])
+            if weight != topo._default_weight:
+                topo.change_weight(e[1], e[0], weight)
 
         return topo
 
