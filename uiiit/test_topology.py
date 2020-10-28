@@ -553,15 +553,6 @@ Edges: (5):
     def test_graphviz(self):
         Topology("grid", size=4).save_dot("mygraph")
 
-class TestTopography(unittest.TestCase):
-    def test_update_topology(self):
-        net = Topology('grid', size=2, default_weight=2)
-        self.assertEqual(4, net.distance(0, 3))
-
-        topo = TopographyDist.make_from_topology(net, 10, 10)
-        topo.update_topology(net)
-        self.assertEqual(20, net.distance(0, 3))
-
 class TestTopographyDist(unittest.TestCase):
     def test_make_from_topology(self):
         net = Topology("ring", size=4)
@@ -587,6 +578,28 @@ class TestTopographyDist(unittest.TestCase):
 
         with self.assertRaises(KeyError):
             topo.distance(20, 10)
+
+    def test_update_topology(self):
+        net = Topology('grid', size=2, default_weight=2)
+        self.assertEqual(4, net.distance(0, 3))
+
+        topo = TopographyDist.make_from_topology(net, 10, 10)
+        topo.update_topology(net)
+        self.assertEqual(20, net.distance(0, 3))
+
+        # topography has nodes unknown to topology: OK
+        topo_another = TopographyDist()
+        for u in range(4):
+            for v in range(u):
+                topo_another.set_distance(u, v, 0.1)
+        topo_another.set_distance(10, 11, 1)
+        topo_another.update_topology(net)
+        self.assertEqual(0.2, net.distance(0, 3))
+
+        # topology has edges unknown to topography: NOK
+        net_another = Topology('grid', size=3)
+        with self.assertRaises(KeyError):
+            topo_another.update_topology(net_another)
 
 class TestTopography2D(unittest.TestCase):
     def test_invalid_ctor(self):
