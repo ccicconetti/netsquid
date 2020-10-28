@@ -656,6 +656,19 @@ class Topography:
         """
         raise NotImplementedError('This method must be overridden')
 
+    def update_topology(self, topology):
+        """Set the distance between nodes in `topology` according to this object.
+
+        Parameters
+        ----------
+        topology: :class:`~.uiiit.topology.Topology`
+            The topology where to set distances
+
+        """
+        for edge in topology.edges():
+            topology.change_weight(edge[0], edge[1],
+                                   self.distance(edge[0], edge[1]))
+
 class TopographyDist(Topography):
     def __init__(self):
         super().__init__()

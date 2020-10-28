@@ -537,9 +537,30 @@ Edges: (5):
         self.assertEqual(10, net.longest_path())
         self.assertEqual(4.5, net.distance(0, 3))
 
+    def test_distance(self):
+        net = Topology('grid', size=2, default_weight=2)
+
+        self.assertEqual(2, net.distance(0, 1))
+        self.assertEqual(4, net.distance(0, 3))
+
+        net.change_weight(1, 0, 3)
+        self.assertEqual(2, net.distance(0, 1))
+
+        net.change_weight(0, 1, 3)
+        self.assertEqual(3, net.distance(0, 1))
+
     @unittest.skip
     def test_graphviz(self):
         Topology("grid", size=4).save_dot("mygraph")
+
+class TestTopography(unittest.TestCase):
+    def test_update_topology(self):
+        net = Topology('grid', size=2, default_weight=2)
+        self.assertEqual(4, net.distance(0, 3))
+
+        topo = TopographyDist.make_from_topology(net, 10, 10)
+        topo.update_topology(net)
+        self.assertEqual(20, net.distance(0, 3))
 
 class TestTopographyDist(unittest.TestCase):
     def test_make_from_topology(self):
