@@ -151,6 +151,20 @@ Edges: (5):
         self.assertEqual(6, dist[0])
         self.assertEqual(5, len(Topology.traversing(prev, 0, 15)))
 
+    def test_degrees(self):
+        net = Topology("grid", size=3)
+
+        self.assertEqual(2, net.degree(0))
+        self.assertEqual(3, net.degree(1))
+        self.assertEqual(4, net.degree(4))
+
+        with self.assertRaises(KeyError):
+            net.degree(9)
+
+        self.assertEqual(4, net.max_degree())
+        self.assertEqual(2, net.min_degree())
+        self.assertAlmostEqual((2*4+3*4+4)/9, net.avg_degree())
+
     def test_incoming_id(self):
         net = Topology("grid", size=3)
 

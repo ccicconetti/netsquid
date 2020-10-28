@@ -168,6 +168,52 @@ class Topology:
         # is called
         self.node_names = set([str(x) for x in range(self.num_nodes)])
 
+    def degree(self, node):
+        """Return the degree of a node.
+
+        The degree is the number of incoming edges it has.
+
+        Parameters
+        ----------
+        node : int
+            Node identifier for which we return the degree.
+
+        Returns
+        -------
+        int
+            Degree of `node`.
+        
+        """
+
+        return len(self._graph[node])
+
+    def max_degree(self):
+        """Return the maximum degree of the graph."""
+
+        cur_max = None
+        for u in self._graph:
+            cur_degree = self.degree(u)
+            if cur_max is None or cur_max < cur_degree:
+                cur_max = cur_degree
+        assert cur_max is not None
+        return cur_max
+
+    def min_degree(self):
+        """Return the minimum degree of the graph."""
+
+        cur_min = None
+        for u in self._graph:
+            cur_degree = self.degree(u)
+            if cur_min is None or cur_min > cur_degree:
+                cur_min = cur_degree
+        assert cur_min is not None
+        return cur_min
+
+    def avg_degree(self):
+        """Return the average degree of the graph."""
+
+        return len(self.edges()) / len(self._graph)
+
     def assign_names(self, node_names):
         """Assign names to nodes. Can be called multiple times.
 
