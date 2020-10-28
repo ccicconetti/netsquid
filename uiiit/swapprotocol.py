@@ -95,10 +95,7 @@ class SwapProtocol(NodeProtocol):
         logging.debug(f"creating SwapProtocol on node {node.name}, qports: {qport_names}, cports: {cport_names}")
 
     def run(self):
-        qports = []
-        for port in self._qmem.ports:
-            qports.append(self._qmem.ports[port])
-
+        qports        = [self._qmem.ports[port] for port in self._qmem.ports]
         qprog_exec    = False
         qprog_path_id = None
         qprog_queue   = []
