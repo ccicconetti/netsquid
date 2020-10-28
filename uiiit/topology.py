@@ -490,10 +490,21 @@ class Topology:
         return self._nexthop_matrix[dst][src]
 
     def distance(self, src, dst):
-        """Return the distance, in traversing cost, from src to dst."""
+        """Return the minimum distance, in traversing cost, from src to dst."""
 
         self._create_nexthop_matrix()
         return self._distance_matrix[dst][src]
+
+    def distance_path(self, src, dst, middle_nodes):
+        """Return the distance to go from `src` to `dst` via `middle_nodes`."""
+
+        distance = 0.
+        last_node = src
+        for curr_node in middle_nodes:
+            distance += self.weight(last_node, curr_node)
+            last_node = curr_node
+        distance += self.weight(last_node, dst)
+        return distance
 
     def diameter(self):
         """Return the maximum traversing cost between any two nodes."""

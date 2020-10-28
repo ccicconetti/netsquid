@@ -609,6 +609,22 @@ Edges: (5):
         net.change_weight(0, 1, 3)
         self.assertEqual(3, net.distance(0, 1))
 
+    def test_distance_path(self):
+        net = Topology('grid', size=3)
+
+        net.change_weight(0, 1, 2)
+        net.change_weight(1, 2, 3)
+        net.change_weight(2, 5, 4)
+        net.change_weight(5, 8, 5)
+
+        self.assertEqual(2, net.distance_path(0, 1, []))
+        self.assertEqual(5, net.distance_path(0, 2, [1]))
+        self.assertEqual(14, net.distance_path(0, 8, [1, 2, 5]))
+        self.assertEqual(4, net.distance_path(0, 8, [3, 6, 7]))
+
+        with self.assertRaises(KeyError):
+            _ = net.distance_path(0, 8, [4])
+
     @unittest.skip
     def test_graphviz(self):
         Topology("grid", size=4).save_dot("mygraph")
