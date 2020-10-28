@@ -536,6 +536,16 @@ Edges: (5):
         self.assertEqual(1, net.weight(3, 0))
         self.assertEqual(2, net.weight(0, 1))
 
+    def test_change_all_weights(self):
+        net = Topology("edges", edges=self.edges_test, default_weight=42)
+        for e,counter in zip(self.edges_test, range(len(self.edges_test))):
+            self.assertEqual(42, net.weight(e[1], e[0]))
+            net.change_weight(e[1], e[0], counter)
+
+        net.change_all_weights(1)
+        for e in self.edges_test:
+            self.assertEqual(1, net.weight(e[1], e[0]))
+
     def test_spt_weights(self):
         #
         #    1 --> 2

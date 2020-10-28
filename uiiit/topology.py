@@ -631,9 +631,21 @@ class Topology:
             self._weight_matrix[dst] = dict()
         self._weight_matrix[dst][src] = weight
 
-        # Invalidate the next-hop and distance matrices
-        self._nexthop_matrix = None
-        self._distance_matrix = None
+        self._invalidate()
+
+    def change_all_weights(self, weight):
+        """Reset all the weights to the same value.
+
+        Parameters
+        ----------
+        weight : float
+            The weight to be assigned to all edges.
+        
+        """
+
+        self._default_weight = weight
+        self._weight_matrix = dict()
+        self._invalidate()
 
     def weight(self, src, dst):
         """Return the weight from `dst` to `src`.
@@ -715,6 +727,12 @@ class Topology:
 
         for u in self._graph.keys():
             self._nexthop_matrix[u], self._distance_matrix[u] = self.spt(u)
+
+    def _invalidate(self):
+        """Invalidate the next-hop and distance matrices."""
+
+        self._nexthop_matrix = None
+        self._distance_matrix = None
 
 class Topography:
     """Base class definining the interface of topography objects.
