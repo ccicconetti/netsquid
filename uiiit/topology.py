@@ -168,6 +168,16 @@ class Topology:
         # is called
         self.node_names = set([str(x) for x in range(self.num_nodes)])
 
+    def __contains__(self, node):
+        """Return True if `node` exists in the graph."""
+
+        if node in self._graph:
+            return True
+        for u, neigh in self._graph.items():
+            if node in neigh:
+                return True
+        return False
+
     def degree(self, node):
         """Return the degree of a node.
 

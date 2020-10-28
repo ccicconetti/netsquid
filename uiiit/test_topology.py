@@ -625,6 +625,15 @@ Edges: (5):
         with self.assertRaises(KeyError):
             _ = net.distance_path(0, 8, [4])
 
+    def test_contains(self):
+        # 0 --> 1 --> 2
+        net = Topology("edges", edges=[[1, 0], [2, 1]])
+        self.assertTrue(0 in net)
+        self.assertTrue(1 in net)
+        self.assertTrue(2 in net)
+        self.assertTrue(-1 not in net)
+        self.assertTrue(4 not in net)
+
     @unittest.skip
     def test_graphviz(self):
         Topology("grid", size=4).save_dot("mygraph")
