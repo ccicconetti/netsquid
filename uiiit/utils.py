@@ -301,4 +301,4 @@ class Chronometer:
         pass
 
     def __exit__(self, type, value, traceback):
-        logging.info(f'Elapsed time: {time.monotonic() - self._start}')
+        logging.debug(f'Elapsed time: {time.monotonic() - self._start}')
