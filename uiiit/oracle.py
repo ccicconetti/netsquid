@@ -189,87 +189,83 @@ class Oracle(Protocol):
 
         """
 
-        try:
-            # Create a new graph with only the edges where entanglement has succeeded
-            graph_uni = Topology("edges", edges=self._edges)
-            graph_uni.copy_names(self._topology)
-            graph_uni.copy_weights(self._topology)
+        # Create a new graph with only the edges where entanglement has succeeded
+        graph_uni = Topology("edges", edges=self._edges)
+        graph_uni.copy_names(self._topology)
+        graph_uni.copy_weights(self._topology)
 
-            # Create a new reduced graph by removing unidirectional edges 
-            graph_bi = graph_uni.extract_bidirectional()
+        # Create a new reduced graph by removing unidirectional edges 
+        graph_bi = graph_uni.extract_bidirectional()
 
-            # logging.debug(f"timeslot #{self.timeslot}, graph {graph_uni}")
-            # logging.debug(f"timeslot #{self.timeslot}, reduced graph {graph_bi}")
-            # graph_bi.save_dot(f"graph_bi{self.timeslot}")
+        # logging.debug(f"timeslot #{self.timeslot}, graph {graph_uni}")
+        logging.debug(f"timeslot #{self.timeslot}, reduced graph {graph_bi}")
+        # graph_bi.save_dot(f"graph_bi{self.timeslot}")
 
-            # Retrieve from the application the list of pairs with e2e entanglement
-            alice = graph_bi.get_id_by_name(alice_name) if alice_name in graph_bi.node_names else None
-            bob = graph_bi.get_id_by_name(bob_name) if bob_name in graph_bi.node_names else None
+        # Retrieve from the application the list of pairs with e2e entanglement
+        alice = graph_bi.get_id_by_name(alice_name) if alice_name in graph_bi.node_names else None
+        bob = graph_bi.get_id_by_name(bob_name) if bob_name in graph_bi.node_names else None
 
-            # Search the path from bob to alice, but only if both are still in
-            # the reduced graph
-            swap_nodes = self._path_selection(bob, alice, graph_bi)
-            
-            if swap_nodes is None:
-                logging.debug((f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, "
-                               f"no way to create an e2e entanglement path {path_id} "
-                               f"between {alice_name} and {bob_name}"))
-                return False
+        # Search the path from bob to alice, but only if both are still in
+        # the reduced graph
+        swap_nodes = self._path_selection(bob, alice, graph_bi)
 
-            # There is a path between alice and bob
-            assert alice is not None
-            assert bob is not None
-            assert swap_nodes is not None
-
-            alice_nxt = swap_nodes[-1] if swap_nodes else bob
-            bob_prv = swap_nodes[0] if swap_nodes else alice
-            self.path[path_id] = Oracle.Path(
-                alice_name,
-                bob_name,
-                self._topology.incoming_id(alice, alice_nxt),
-                self._topology.incoming_id(bob, bob_prv),
-                swap_nodes,
-                ns.sim_time()
-            )
-
-            # If there are no intermediate nodes, then alice and bob shared
-            # an entangling connection, hence there is no need to send
-            # out corrections, and the qubits received can be used immediately
-            if not swap_nodes:
-                self._edges.remove([alice, bob])
-                self._edges.remove([bob, alice])
-                self.success(path_id)
-                return True
-
-            for i in range(len(swap_nodes)):
-                cur = swap_nodes[i]
-                prv = bob if i == 0 else swap_nodes[i-1]
-                nxt = alice if i == (len(swap_nodes)-1) else swap_nodes[i+1]
-                prv_pos = self._topology.incoming_id(cur, prv)
-                nxt_pos = self._topology.incoming_id(cur, nxt)
-                logging.debug(
-                    (f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, "
-                        f"e2e entanglement path {path_id} "
-                        f"between {alice_name} and {bob_name}: "
-                        f"on node {cur} entangle node {prv} (mem pos {prv_pos}) "
-                        f"and node {nxt} (mem pos {nxt_pos})"))
-
-                self._edges.remove([cur, prv])
-                self._edges.remove([prv, cur])
-
-                cur_name = self._topology.get_name_by_id(cur)
-                if cur_name not in self.mem_pos:
-                    self.mem_pos[cur_name] = []
-                self.mem_pos[cur_name].append([
-                    prv_pos, nxt_pos,
-                    self._topology.get_name_by_id(bob),
-                    path_id])
-
-            self._edges.remove([alice, alice_nxt])
-            self._edges.remove([alice_nxt, alice])                
-
-        except KeyError:
+        if swap_nodes is None:
+            logging.debug((f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, "
+                            f"no way to create an e2e entanglement path {path_id} "
+                            f"between {alice_name} and {bob_name}"))
             return False
+
+        # There is a path between alice and bob
+        assert alice is not None
+        assert bob is not None
+        assert swap_nodes is not None
+
+        alice_nxt = swap_nodes[-1] if swap_nodes else bob
+        bob_prv = swap_nodes[0] if swap_nodes else alice
+        self.path[path_id] = Oracle.Path(
+            alice_name,
+            bob_name,
+            self._topology.incoming_id(alice, alice_nxt),
+            self._topology.incoming_id(bob, bob_prv),
+            swap_nodes,
+            ns.sim_time()
+        )
+
+        # If there are no intermediate nodes, then alice and bob shared
+        # an entangling connection, hence there is no need to send
+        # out corrections, and the qubits received can be used immediately
+        if not swap_nodes:
+            self._edges.remove([alice, bob])
+            self._edges.remove([bob, alice])
+            self.success(path_id)
+            return True
+
+        for i in range(len(swap_nodes)):
+            cur = swap_nodes[i]
+            prv = bob if i == 0 else swap_nodes[i-1]
+            nxt = alice if i == (len(swap_nodes)-1) else swap_nodes[i+1]
+            prv_pos = self._topology.incoming_id(cur, prv)
+            nxt_pos = self._topology.incoming_id(cur, nxt)
+            logging.debug(
+                (f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, "
+                    f"e2e entanglement path {path_id} "
+                    f"between {alice_name} and {bob_name}: "
+                    f"on node {cur} entangle node {prv} (mem pos {prv_pos}) "
+                    f"and node {nxt} (mem pos {nxt_pos})"))
+
+            self._edges.remove([cur, prv])
+            self._edges.remove([prv, cur])
+
+            cur_name = self._topology.get_name_by_id(cur)
+            if cur_name not in self.mem_pos:
+                self.mem_pos[cur_name] = []
+            self.mem_pos[cur_name].append([
+                prv_pos, nxt_pos,
+                self._topology.get_name_by_id(bob),
+                path_id])
+
+        self._edges.remove([alice, alice_nxt])
+        self._edges.remove([alice_nxt, alice])                
 
         return True
 
@@ -292,8 +288,9 @@ class Oracle(Protocol):
         
         # The nodes src and dst may be None, but if they aren't then
         # we assume they both exist in the bidirectional graph
-        assert src in graph_bi
-        assert dst in graph_bi
+        nodes = graph_bi.nodes()
+        assert src in nodes
+        assert dst in nodes
 
         if self._algorithm in ['spf-hops', 'spf-dist']:
             if self._algorithm == 'spf-hops':
@@ -313,7 +310,8 @@ class Oracle(Protocol):
                 not_usable = False
                 full_path = [src] + path[0] + [dst]
                 for i in range(len(full_path)-1):
-                    if graph_bi.isedge(full_path[i], full_path[i+1]) == False:
+                    if full_path[i+1] not in nodes or \
+                        graph_bi.isedge(full_path[i], full_path[i+1]) == False:
                         not_usable = True
                         break
                 if not_usable:
@@ -392,10 +390,10 @@ class Oracle(Protocol):
         nodes = self._topology.nodes()
         self._all_paths = dict()
         for u in nodes:
+            self._all_paths[u] = dict()
             for v in nodes:
                 if u == v:
                     continue
-                self._all_paths[u] = dict()
                 self._all_paths[u][v] = []
                 curr = self._all_paths[u][v]
                 for p in self._topology.all_paths(u, v):
