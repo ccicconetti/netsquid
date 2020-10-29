@@ -521,6 +521,21 @@ Edges: (5):
 
         self.assertEqual({(0, 1), (1, 2), (2, 3), (3, 0)}, net_uni.farthest_nodes())
 
+    def test_all_paths(self):
+        net_grid = Topology('grid', size=3)
+
+        with self.assertRaises(KeyError):
+            net_grid.all_paths(0, 9)
+        self.assertEqual([
+            [], [1, 4], [1, 2, 5, 4], [1, 2, 5, 8, 7, 4],
+            [1, 2, 5, 8, 7, 6], [1, 4, 5, 8, 7, 6], [1, 4, 7, 6],
+            [1, 2, 5, 4, 7, 6]], net_grid.all_paths(0, 3))
+
+        # 0 --> 1 --> 2
+        net_chain = Topology('edges', edges=[[1, 0], [2,1]])
+        self.assertEqual([[1]], net_chain.all_paths(0, 2))
+        self.assertEqual([], net_chain.all_paths(2, 0))
+
     def test_change_weight(self):
         net = Topology("edges", edges=self.edges_test, default_weight=42)
 

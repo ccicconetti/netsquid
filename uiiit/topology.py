@@ -437,12 +437,12 @@ class Topology:
 
         return self._graph[node]
 
-    def spt(self, source, opposite_weight=False):
-        """Compute the shortest-path tree to source.
+    def spt(self, dst, opposite_weight=False):
+        """Compute the shortest-path tree to `dst`.
 
         Parameters
         ----------
-        source : int
+        dst : int
             The identifier of the node for which to compute the SPT.
         opposite_weight : bool
             Take the opposite of the weights.
@@ -464,10 +464,10 @@ class Topology:
             dist[v] = float('inf')
             prev[v] = None
 
-        if source not in dist:
-            raise KeyError(f'{source} is not in {Q}')
+        if dst not in dist:
+            raise KeyError(f'{dst} is not in {Q}')
 
-        dist[source] = 0
+        dist[dst] = 0
 
         while Q:
             u = None
@@ -492,6 +492,27 @@ class Topology:
                     prev[v] = u
 
         return (prev, dist)
+
+    def all_paths(self, src, dst):
+        """Compute all paths to reach `dst` from `src` in the graph.
+
+        Parameters
+        ----------
+        src: int
+            The source node.
+        dst : int
+            The destination node.
+
+        Returns
+        -------
+        list
+            A list of intermediate hops to reach `dst` from `src`.
+        
+        """
+
+        paths = []
+        self._all_paths(src, dst, paths, dst, [])
+        return paths
 
     def next_hop(self, src, dst):
         """Return the next hop on src to reach dst."""
@@ -695,10 +716,6 @@ class Topology:
                 return self._weight_matrix[dst][src]
         return self._default_weight
 
-    def _check_neighbors(self, src, dst):
-        if dst not in self._graph or src not in self._graph[dst]:
-            raise KeyError(f"Nodes {dst} to {src} do not have an edge")
-
     @staticmethod
     def traversing(spt, src, dst):
         """"Return the nodes traversed from src to dst according to the given SPT
@@ -713,6 +730,19 @@ class Topology:
                 ret.append(nxt)
 
         return ret
+
+    def _all_paths(self, src, dst, paths, cur_node, cur_path):
+        for u in self._graph[cur_node]:
+            if u == dst or u in cur_path:
+                pass
+            elif u == src:
+                paths.append(cur_path)
+            else:
+                self._all_paths(src, dst, paths, u, [u] + cur_path)
+
+    def _check_neighbors(self, src, dst):
+        if dst not in self._graph or src not in self._graph[dst]:
+            raise KeyError(f"Nodes {dst} to {src} do not have an edge")
 
     def _create_incoming_id(self):
         # Do not overwrite a previously-created data structure
