@@ -6,6 +6,7 @@ import shutil
 import socket
 import pickle
 import logging
+import time
 from multiprocessing import Process, Queue
 from queue import Empty
 
@@ -289,3 +290,15 @@ class TestDirectory:
     def _rmdir(self):
         if os.path.exists(self._path):
             shutil.rmtree(self._path)
+
+class Chronometer:
+    """Logs the time required to execute instructions."""
+
+    def __init__(self):
+        self._start = time.monotonic()
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, type, value, traceback):
+        logging.info(f'Elapsed time: {time.monotonic() - self._start}')
