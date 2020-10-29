@@ -178,6 +178,31 @@ class Topology:
                 return True
         return False
 
+    def isedge(self, src, dst):
+        """Return True if `dst` has an incoming edge from `src`.
+        
+        Parameters
+        ----------
+        src : int
+            Source node identifier.
+        dst : int
+            Destination node identifier.
+        
+        Returns
+        -------
+        bool
+            True if `dst` has an incoming edge from `src`, False otherwise.
+            If `src` does not exist in the graph, always return False
+
+        Raises
+        ------
+        KeyError
+            If `dst` does not exist in the graph.
+            
+        """
+
+        return src in self._graph[dst]
+
     def nodes(self):
         """Return the node identifiers."""
 

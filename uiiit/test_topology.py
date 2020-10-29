@@ -151,6 +151,27 @@ Edges: (5):
         self.assertEqual(6, dist[0])
         self.assertEqual(5, len(Topology.traversing(prev, 0, 15)))
 
+    def test_isedge(self):
+        net_grid = Topology("grid", size=3)
+        self.assertTrue(net_grid.isedge(0, 1))
+        self.assertTrue(net_grid.isedge(1, 0))
+        self.assertTrue(net_grid.isedge(4, 5))
+        self.assertTrue(net_grid.isedge(5, 4))
+        self.assertFalse(net_grid.isedge(0, 2))
+        self.assertFalse(net_grid.isedge(2, 0))
+
+        with self.assertRaises(KeyError):
+            net_grid.isedge(0, 10)
+        self.assertFalse(net_grid.isedge(10, 0))
+
+        net_chain = Topology("edges", edges=[[1, 0], [2, 1]])
+        self.assertTrue(net_chain.isedge(0, 1))
+        self.assertTrue(net_chain.isedge(1, 2))
+        self.assertFalse(net_chain.isedge(1, 0))
+        self.assertFalse(net_chain.isedge(2, 0))
+        self.assertFalse(net_chain.isedge(2, 1))
+        self.assertFalse(net_chain.isedge(0, 2))
+
     def test_nodes(self):
         net_grid = Topology("grid", size=3)
         self.assertEqual({0,1,2,3,4,5,6,7,8}, net_grid.nodes())
