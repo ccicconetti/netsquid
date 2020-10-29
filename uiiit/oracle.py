@@ -199,7 +199,7 @@ class Oracle(Protocol):
 
         # logging.debug(f"timeslot #{self.timeslot}, graph {graph_uni}")
         logging.debug(f"timeslot #{self.timeslot}, reduced graph {graph_bi}")
-        # graph_bi.save_dot(f"graph_bi{self.timeslot}")
+        graph_bi.save_dot(f"graph_bi{self.timeslot}")
 
         # Retrieve from the application the list of pairs with e2e entanglement
         alice = graph_bi.get_id_by_name(alice_name) if alice_name in graph_bi.node_names else None
@@ -387,6 +387,7 @@ class Oracle(Protocol):
         del self.path[path_id]
 
     def _initialize_min_max_dist(self):
+        diameter = Topology("edges", edges=self._topology.edges()).diameter()
         nodes = self._topology.nodes()
         self._all_paths = dict()
         for u in nodes:
@@ -396,7 +397,7 @@ class Oracle(Protocol):
                     continue
                 self._all_paths[u][v] = []
                 curr = self._all_paths[u][v]
-                for p in self._topology.all_paths(u, v):
+                for p in self._topology.all_paths(u, v, 2 * diameter):
                     max_cost = 0
                     for swap_node in p:
                         max_cost = max(max_cost,
