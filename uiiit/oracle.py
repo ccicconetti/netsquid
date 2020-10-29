@@ -7,7 +7,7 @@ import netsquid as ns
 from netsquid.qubits import ketstates as ks
 from netsquid.protocols import Protocol, Signals
 
-from uiiit.topology import Topology
+from uiiit.topology import Topology, EmptyTopology
 from uiiit.utils import Chronometer
 
 __all__ = [
@@ -189,17 +189,22 @@ class Oracle(Protocol):
 
         """
 
-        # Create a new graph with only the edges where entanglement has succeeded
-        graph_uni = Topology("edges", edges=self._edges)
-        graph_uni.copy_names(self._topology)
-        graph_uni.copy_weights(self._topology)
+        try:
+            # Create a new graph with only the edges where entanglement has succeeded
+            graph_uni = Topology("edges", edges=self._edges)
+            graph_uni.copy_names(self._topology)
+            graph_uni.copy_weights(self._topology)
 
-        # Create a new reduced graph by removing unidirectional edges 
-        graph_bi = graph_uni.extract_bidirectional()
+            # Create a new reduced graph by removing unidirectional edges
+            graph_bi = graph_uni.extract_bidirectional()
 
-        # logging.debug(f"timeslot #{self.timeslot}, graph {graph_uni}")
-        logging.debug(f"timeslot #{self.timeslot}, reduced graph {graph_bi}")
-        graph_bi.save_dot(f"graph_bi{self.timeslot}")
+        except EmptyTopology:
+            logging.debug(f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, empty reduced graph")
+            return False
+
+        # logging.debug(f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, graph {graph_uni}")
+        logging.debug(f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, reduced graph {graph_bi}")
+        # graph_bi.save_dot(f"graph_bi{self.timeslot}")
 
         # Retrieve from the application the list of pairs with e2e entanglement
         alice = graph_bi.get_id_by_name(alice_name) if alice_name in graph_bi.node_names else None
