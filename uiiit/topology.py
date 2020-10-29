@@ -528,7 +528,7 @@ class Topology:
 
         return (prev, dist)
 
-    def all_paths(self, src, dst):
+    def all_paths(self, src, dst, max_hops=0):
         """Compute all paths to reach `dst` from `src` in the graph.
 
         Parameters
@@ -537,6 +537,8 @@ class Topology:
             The source node.
         dst : int
             The destination node.
+        max_hops : int, optional
+            The maximum number of hops to consider. 0 means infinite.
 
         Returns
         -------
@@ -546,7 +548,7 @@ class Topology:
         """
 
         paths = []
-        self._all_paths(src, dst, paths, dst, [])
+        self._all_paths(src, dst, max_hops, paths, dst, [])
         return paths
 
     def next_hop(self, src, dst):
@@ -766,14 +768,14 @@ class Topology:
 
         return ret
 
-    def _all_paths(self, src, dst, paths, cur_node, cur_path):
+    def _all_paths(self, src, dst, max_hops, paths, cur_node, cur_path):
         for u in self._graph[cur_node]:
             if u == dst or u in cur_path:
                 pass
             elif u == src:
                 paths.append(cur_path)
-            else:
-                self._all_paths(src, dst, paths, u, [u] + cur_path)
+            elif max_hops == 0 or len(cur_path) < max_hops:
+                self._all_paths(src, dst, max_hops, paths, u, [u] + cur_path)
 
     def _check_neighbors(self, src, dst):
         if dst not in self._graph or src not in self._graph[dst]:

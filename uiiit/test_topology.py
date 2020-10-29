@@ -559,6 +559,12 @@ Edges: (5):
             [1, 2, 5, 8, 7, 6], [1, 4, 5, 8, 7, 6], [1, 4, 7, 6],
             [1, 2, 5, 4, 7, 6]], net_grid.all_paths(0, 3))
 
+        self.assertEqual([[], [1, 4]], net_grid.all_paths(0, 3, 2))
+
+        self.assertEqual([
+            [], [1, 4], [1, 2, 5, 4], [1, 4, 7, 6]],
+            net_grid.all_paths(0, 3, 4))
+
         # 0 --> 1 --> 2
         net_chain = Topology('edges', edges=[[1, 0], [2,1]])
         self.assertEqual([[1]], net_chain.all_paths(0, 2))
