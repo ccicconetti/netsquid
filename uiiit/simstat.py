@@ -42,8 +42,8 @@ class Conf:
                 return False
         return True
 
-    def compact(self):
-        return '.'.join([f'{k}={v}' for k, v in sorted(self._params.items())])
+    def compact(self, keys=[]):
+        return '.'.join([f'{k}={v}' for k, v in sorted(self._params.items()) if not keys or k in keys])
 
     def __repr__(self):
         return ', '.join([f'{k}: {v}' for k, v in sorted(self._params.items())])
@@ -185,17 +185,27 @@ class Stat:
         ret._counts = counts
         return ret
 
-    def export(self, path):
-        """Export the content to a set of files in the given path."""
+    def export(self, path, parameters=[]):
+        """Export the content to a set of files in the given path.
+        
+        Parameters
+        ----------
+        path : str
+            The path where to save the files.
+        parameters : list, optional
+            The list of parameters to use for the file name.
+            If empty then use all.
+        
+        """
 
-        base_name = self._conf.compact()
+        base_name = self._conf.compact(parameters)
 
         for metric_name, record in self._counts.items():
-            with open(f'{path}/{base_name}-{metric_name}.dat', 'w') as outfile:
+            with open(f'{path}/{base_name}.{metric_name}.dat', 'w') as outfile:
                 outfile.write(f'{record[0]} {record[1]}\n')
 
         for metric_name, values in self._points.items():
-            with open(f'{path}/{base_name}-{metric_name}.dat', 'w') as outfile:
+            with open(f'{path}/{base_name}.{metric_name}.dat', 'w') as outfile:
                 for value in values:
                     outfile.write(f'{value}\n')
 
@@ -405,8 +415,21 @@ class MultiStat:
         else:
             os.mkdir(path)
 
+        # Find all parameters that have the same value across all the stats
+        all_params = dict()
         for stat in self._stats.values():
-            stat.export(path)
+            for k, v in stat.conf().all_params().items():
+                if k not in all_params:
+                    all_params[k] = set()
+                all_params[k].add(v)
+        variable_params = []
+        for param, values in all_params.items():
+            if len(values) > 1:
+                variable_params.append(param)
+
+        # Export the statistics
+        for stat in self._stats.values():
+            stat.export(path, variable_params)
 
     def print(self):
         """Print all the `Stat` objects in a human-readable manner."""
