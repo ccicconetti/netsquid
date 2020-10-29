@@ -369,7 +369,7 @@ class Oracle(Protocol):
         # at each node and the time when all the corrections have been applied
         # to one of the end nodes.
         latency = ns.sim_time() - path.timestamp
-        self._stat.add(f"latency-{dist}", latency)
+        self._stat.add(f"latency-{dist}", latency * 1e-6) # convert ns to ms
 
         # Record the physical distance, in the shorted path, of e2e entanglement.
         self._stat.add(f"distance-{dist}",
@@ -379,9 +379,10 @@ class Oracle(Protocol):
                            path.swap_nodes))
 
         # Counter of successful e2e entanglements.
-        self._stat.count("success", 1)
-        if fidelity > 0.75:
-            self._stat.count("success-0.75", 1)
+        fid_thresholds = [0, 0.6, 0.7, 0.8, 0.9]
+        for fid in fid_thresholds:
+            if fidelity > fid:
+                self._stat.count(f"success-{fid:.1f}", 1)
 
         logging.debug((f"{ns.sim_time():.1f}: "
                        f"timeslot #{self.timeslot}, e2e entanglement path {path_id} "
