@@ -151,6 +151,13 @@ Edges: (5):
         self.assertEqual(6, dist[0])
         self.assertEqual(5, len(Topology.traversing(prev, 0, 15)))
 
+    def test_nodes(self):
+        net_grid = Topology("grid", size=3)
+        self.assertEqual({0,1,2,3,4,5,6,7,8}, net_grid.nodes())
+
+        net_chain = Topology("edges", edges=[[1, 0], [2, 1]])
+        self.assertEqual({0,1,2}, net_chain.nodes())
+
     def test_degrees(self):
         net = Topology("grid", size=3)
 

@@ -173,10 +173,20 @@ class Topology:
 
         if node in self._graph:
             return True
-        for u, neigh in self._graph.items():
+        for neigh in self._graph.values():
             if node in neigh:
                 return True
         return False
+
+    def nodes(self):
+        """Return the node identifiers."""
+
+        ret = set()
+        for u, neigh in self._graph.items():
+            ret.add(u)
+            for v in neigh:
+                ret.add(v)
+        return ret
 
     def degree(self, node):
         """Return the degree of a node.
