@@ -8,6 +8,7 @@ from netsquid.qubits import ketstates as ks
 from netsquid.protocols import Protocol, Signals
 
 from uiiit.topology import Topology
+from uiiit.utils import Chronometer
 
 __all__ = [
     "Oracle"
@@ -86,6 +87,11 @@ class Oracle(Protocol):
         self.timeslot = 0
         self.mem_pos  = dict()
         self.path     = dict()
+
+        self._all_paths = None
+        if algorithm == 'minmax-dist':
+            with Chronometer():
+                self._initialize_min_max_dist()
 
         logging.debug(f"Create Oracle for network {network.name}, app {app.name}, nodes: {topology.node_names}")
 
@@ -262,9 +268,7 @@ class Oracle(Protocol):
             self._edges.remove([alice, alice_nxt])
             self._edges.remove([alice_nxt, alice])                
 
-        except (AssertionError, NotImplementedError):
-            raise
-        except:
+        except KeyError:
             return False
 
         return True
@@ -301,7 +305,23 @@ class Oracle(Protocol):
             return Topology.traversing(prev, src, dst)
 
         elif self._algorithm == 'minmax-dist':
-            return None # XXX
+            assert self._all_paths is not None
+
+            curr = None
+            for path in self._all_paths[src][dst]:
+                # Discard path if cannot be implemented in the reduced graph.
+                not_usable = False
+                full_path = [src] + path[0] + [dst]
+                for i in range(len(full_path)-1):
+                    if graph_bi.isedge(full_path[i], full_path[i+1]) == False:
+                        not_usable = True
+                        break
+                if not_usable:
+                    continue
+                if curr is None or curr[1] > path[1]:
+                    curr = path
+
+            return curr[0] if curr is not None else None
 
         raise NotImplementedError(
             f'Unknown path selection algorithm: {self._algorithm}')
@@ -367,3 +387,27 @@ class Oracle(Protocol):
         
         # Remove the path once it is found to be successful
         del self.path[path_id]
+
+    def _initialize_min_max_dist(self):
+        nodes = self._topology.nodes()
+        self._all_paths = dict()
+        for u in nodes:
+            for v in nodes:
+                if u == v:
+                    continue
+                self._all_paths[u] = dict()
+                self._all_paths[u][v] = []
+                curr = self._all_paths[u][v]
+                for p in self._topology.all_paths(u, v):
+                    max_cost = 0
+                    for swap_node in p:
+                        max_cost = max(max_cost,
+                                       self._topology.distance(swap_node, v))
+                    curr.append((p, max_cost))
+
+        if logging.getLogger().isEnabledFor(logging.DEBUG):
+            for src, destinations in self._all_paths.items():
+                for dst, paths in destinations.items():
+                    logging.debug(f'{src} -> {dst}')
+                    for path, cost in paths:
+                        logging.debug(f'path {path} cost {cost}')
