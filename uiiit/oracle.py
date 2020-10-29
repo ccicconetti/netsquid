@@ -35,6 +35,8 @@ class Oracle(Protocol):
 
     Parameters
     ----------
+    algorithm : { 'spf-hops', 'spf-dist', 'minmax-dist' }
+        The algorithm to use for path selection.
     network : `netsquid.nodes.network.Network`
         The network of nodes.
     topology : `uiiit.topology.Topology`
@@ -68,14 +70,15 @@ class Oracle(Protocol):
         This structure is overwritten at every new timeslot.
 
     """
-    def __init__(self, network, topology, app, stat):
+    def __init__(self, algorithm, network, topology, app, stat):
         super().__init__(name="Oracle")
 
-        self._topology = topology
+        self._algorithm = algorithm
+        self._topology  = topology
         self._topology_hops = Topology('edges', edges=topology.edges())
-        self._network  = network
-        self._app      = app
-        self._stat     = stat
+        self._network   = network
+        self._app       = app
+        self._stat      = stat
 
         self._edges = []
         self._pending_nodes = set(topology.node_names)
@@ -184,6 +187,7 @@ class Oracle(Protocol):
             # Create a new graph with only the edges where entanglement has succeeded
             graph_uni = Topology("edges", edges=self._edges)
             graph_uni.copy_names(self._topology)
+            graph_uni.copy_weights(self._topology)
 
             # Create a new reduced graph by removing unidirectional edges 
             graph_bi = graph_uni.extract_bidirectional()
@@ -198,74 +202,109 @@ class Oracle(Protocol):
 
             # Search the path from bob to alice, but only if both are still in
             # the reduced graph
-            prev = None
-            if alice is not None and bob is not None:
-                prev, _ = graph_bi.spt(alice)
+            swap_nodes = self._path_selection(bob, alice, graph_bi)
             
-            if prev is None or prev[bob] is None:
+            if swap_nodes is None:
                 logging.debug((f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, "
                                f"no way to create an e2e entanglement path {path_id} "
                                f"between {alice_name} and {bob_name}"))
                 return False
 
-            else:
-                # There is a path between alice and bob
-                assert alice is not None
-                assert bob is not None
+            # There is a path between alice and bob
+            assert alice is not None
+            assert bob is not None
+            assert swap_nodes is not None
 
-                swap_nodes = Topology.traversing(prev, bob, alice)
-                alice_nxt = swap_nodes[-1] if swap_nodes else bob
-                bob_prv = swap_nodes[0] if swap_nodes else alice
-                self.path[path_id] = Oracle.Path(
-                    alice_name,
-                    bob_name,
-                    self._topology.incoming_id(alice, alice_nxt),
-                    self._topology.incoming_id(bob, bob_prv),
-                    swap_nodes,
-                    ns.sim_time()
-                )
-                # logging.debug(f"timeslot #{self.timeslot}, path {bob}, {', '.join([str(x) for x in swap_nodes])}, {alice}")
+            alice_nxt = swap_nodes[-1] if swap_nodes else bob
+            bob_prv = swap_nodes[0] if swap_nodes else alice
+            self.path[path_id] = Oracle.Path(
+                alice_name,
+                bob_name,
+                self._topology.incoming_id(alice, alice_nxt),
+                self._topology.incoming_id(bob, bob_prv),
+                swap_nodes,
+                ns.sim_time()
+            )
 
-                # If there are no intermediate nodes, then alice and bob shared
-                # an entangling connection, hence there is no need to send
-                # out corrections, and the qubits received can be used immediately
-                if not swap_nodes:
-                    self._edges.remove([alice, bob])
-                    self._edges.remove([bob, alice])
-                    self.success(path_id)
-                    return True
+            # If there are no intermediate nodes, then alice and bob shared
+            # an entangling connection, hence there is no need to send
+            # out corrections, and the qubits received can be used immediately
+            if not swap_nodes:
+                self._edges.remove([alice, bob])
+                self._edges.remove([bob, alice])
+                self.success(path_id)
+                return True
 
-                for i in range(len(swap_nodes)):
-                    cur = swap_nodes[i]
-                    prv = bob if i == 0 else swap_nodes[i-1]
-                    nxt = alice if i == (len(swap_nodes)-1) else swap_nodes[i+1]
-                    prv_pos = self._topology.incoming_id(cur, prv)
-                    nxt_pos = self._topology.incoming_id(cur, nxt)
-                    logging.debug(
-                        (f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, "
-                         f"e2e entanglement path {path_id} "
-                         f"between {alice_name} and {bob_name}: "
-                         f"on node {cur} entangle node {prv} (mem pos {prv_pos}) "
-                         f"and node {nxt} (mem pos {nxt_pos})"))
+            for i in range(len(swap_nodes)):
+                cur = swap_nodes[i]
+                prv = bob if i == 0 else swap_nodes[i-1]
+                nxt = alice if i == (len(swap_nodes)-1) else swap_nodes[i+1]
+                prv_pos = self._topology.incoming_id(cur, prv)
+                nxt_pos = self._topology.incoming_id(cur, nxt)
+                logging.debug(
+                    (f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, "
+                        f"e2e entanglement path {path_id} "
+                        f"between {alice_name} and {bob_name}: "
+                        f"on node {cur} entangle node {prv} (mem pos {prv_pos}) "
+                        f"and node {nxt} (mem pos {nxt_pos})"))
 
-                    self._edges.remove([cur, prv])
-                    self._edges.remove([prv, cur])
+                self._edges.remove([cur, prv])
+                self._edges.remove([prv, cur])
 
-                    cur_name = self._topology.get_name_by_id(cur)
-                    if cur_name not in self.mem_pos:
-                        self.mem_pos[cur_name] = []
-                    self.mem_pos[cur_name].append([
-                        prv_pos, nxt_pos,
-                        self._topology.get_name_by_id(bob),
-                        path_id])
+                cur_name = self._topology.get_name_by_id(cur)
+                if cur_name not in self.mem_pos:
+                    self.mem_pos[cur_name] = []
+                self.mem_pos[cur_name].append([
+                    prv_pos, nxt_pos,
+                    self._topology.get_name_by_id(bob),
+                    path_id])
 
-                self._edges.remove([alice, alice_nxt])
-                self._edges.remove([alice_nxt, alice])                
+            self._edges.remove([alice, alice_nxt])
+            self._edges.remove([alice_nxt, alice])                
 
+        except (AssertionError, NotImplementedError):
+            raise
         except:
             return False
 
         return True
+
+    def _path_selection(self, src, dst, graph_bi):
+        """Return the list of intermediate nodes to perform swapping.
+        
+        Parameters
+        ----------
+        src : int
+            The source node
+        dst : int
+            The destination node
+        graph_bi : `Topology`
+            The reduced bi-directional graph. May be changed by the method.
+
+        """
+
+        if src is None or dst is None:
+            return None
+        
+        # The nodes src and dst may be None, but if they aren't then
+        # we assume they both exist in the bidirectional graph
+        assert src in graph_bi
+        assert dst in graph_bi
+
+        if self._algorithm in ['spf-hops', 'spf-dist']:
+            if self._algorithm == 'spf-hops':
+                graph_bi.change_all_weights(1)
+            prev, _ = graph_bi.spt(dst)
+            
+            if prev is None or prev[src] is None:
+                return None
+            return Topology.traversing(prev, src, dst)
+
+        elif self._algorithm == 'minmax-dist':
+            return None # XXX
+
+        raise NotImplementedError(
+            f'Unknown path selection algorithm: {self._algorithm}')
 
     def channel_id(self, src, dst):
         """Return the channel identifier where to send a message.
