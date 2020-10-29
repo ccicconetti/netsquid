@@ -570,6 +570,18 @@ Edges: (5):
         self.assertEqual([[1]], net_chain.all_paths(0, 2))
         self.assertEqual([], net_chain.all_paths(2, 0))
 
+    def test_connected(self):
+        self.assertTrue(Topology("grid", size=1).connected())
+        self.assertTrue(Topology("grid", size=2).connected())
+        self.assertTrue(Topology("grid", size=4).connected())
+        self.assertTrue(Topology("chain", size=5).connected())
+
+        self.assertFalse(Topology("edges", edges=[[1, 0]]).connected())
+        self.assertFalse(
+            Topology("edges", edges=[[1, 0], [0, 1], [2, 1]]).connected())
+        self.assertFalse(
+            Topology("edges", edges=[[1, 0], [0, 1], [3, 4], [4, 3]]).connected())
+
     def test_change_weight(self):
         net = Topology("edges", edges=self.edges_test, default_weight=42)
 

@@ -178,6 +178,20 @@ class Topology:
                 return True
         return False
 
+    def connected(self):
+        """Return True if the graph is connected.
+
+        A graph is connected if there is a path between any source and
+        destination.
+        
+        """
+        self._create_nexthop_matrix()
+        for u, next_hops in self._nexthop_matrix.items():
+            for v, nh in next_hops.items():
+                if u != v and nh is None:
+                    return False
+        return True
+
     def isedge(self, src, dst):
         """Return True if `dst` has an incoming edge from `src`.
         
