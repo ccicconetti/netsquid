@@ -296,10 +296,15 @@ class Oracle(Protocol):
             return None
         
         # The nodes src and dst may be None, but if they aren't then
-        # we assume they both exist in the bidirectional graph
+        # we assume they both exist in the bidirectional graph.
         nodes = graph_bi.nodes()
         assert src in nodes
         assert dst in nodes
+
+        # Short-cut if the two end-to-end endpoints share an edge.
+        # This applies to all algorithms.
+        if graph_bi.isedge(src, dst):
+            return []
 
         if self._algorithm in ['spf-hops', 'spf-dist']:
             if self._algorithm == 'spf-hops':
@@ -315,7 +320,7 @@ class Oracle(Protocol):
 
             curr = None
             for path in self._all_paths[src][dst]:
-                # Discard path if cannot be implemented in the reduced graph.
+                # Discard path if it cannot be implemented in the reduced graph.
                 not_usable = False
                 full_path = [src] + path[0] + [dst]
                 for i in range(len(full_path)-1):
@@ -325,7 +330,9 @@ class Oracle(Protocol):
                         break
                 if not_usable:
                     continue
-                if curr is None or curr[1] > path[1]:
+                if curr is None or \
+                    curr[1] > path[1] or \
+                    (curr[1] == path[1] and len(curr[0]) > len(path[0])):
                     curr = path
 
             return curr[0] if curr is not None else None
@@ -414,7 +421,7 @@ class Oracle(Protocol):
                     for swap_node in p:
                         max_cost = max(max_cost,
                                        self._topology.distance(swap_node, v))
-                    curr.append((p, max_cost))
+                    curr.append((p, int(0.5 + max_cost)))
                     counter += 1
                     if counter == self._minmax_dist_max_paths:
                         raise ValueError('Too many paths, bailing out')
