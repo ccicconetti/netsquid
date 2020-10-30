@@ -199,7 +199,9 @@ class Oracle(Protocol):
             graph_bi = graph_uni.extract_bidirectional()
 
         except EmptyTopology:
-            logging.debug(f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, empty reduced graph")
+            logging.debug((f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, "
+                           f"{alice_name} -> {bob_name} [path {path_id}]: "
+                           f"empty reduced graph"))
             return False
 
         # logging.debug(f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, graph {graph_uni}")
@@ -216,8 +218,8 @@ class Oracle(Protocol):
 
         if swap_nodes is None:
             logging.debug((f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, "
-                            f"no way to create an e2e entanglement path {path_id} "
-                            f"between {alice_name} and {bob_name}"))
+                           f"{alice_name} -> {bob_name} [path {path_id}]: "
+                           f"no way to create an e2e entanglement path"))
             return False
 
         # There is a path between alice and bob
@@ -253,10 +255,9 @@ class Oracle(Protocol):
             nxt_pos = self._topology.incoming_id(cur, nxt)
             logging.debug(
                 (f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, "
-                    f"e2e entanglement path {path_id} "
-                    f"between {alice_name} and {bob_name}: "
-                    f"on node {cur} entangle node {prv} (mem pos {prv_pos}) "
-                    f"and node {nxt} (mem pos {nxt_pos})"))
+                 f"{alice_name} -> {bob_name} [path {path_id}]: "
+                 f"on node {cur} entangle node {prv} (mem pos {prv_pos}) "
+                 f"and node {nxt} (mem pos {nxt_pos})"))
 
             self._edges.remove([cur, prv])
             self._edges.remove([prv, cur])
