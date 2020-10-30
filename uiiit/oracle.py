@@ -15,6 +15,9 @@ __all__ = [
     ]
 
 class Oracle(Protocol):
+    _minmax_dist_max_paths   = 2**24
+    _minmax_dist_diam_factor = 2
+
     class Path:
         def __init__(self, alice_name, bob_name,
                      alice_edge_id, bob_edge_id,
@@ -397,6 +400,7 @@ class Oracle(Protocol):
         diameter = Topology("edges", edges=self._topology.edges()).diameter()
         nodes = self._topology.nodes()
         self._all_paths = dict()
+        counter = 0
         for u in nodes:
             self._all_paths[u] = dict()
             for v in nodes:
@@ -404,12 +408,16 @@ class Oracle(Protocol):
                     continue
                 self._all_paths[u][v] = []
                 curr = self._all_paths[u][v]
-                for p in self._topology.all_paths(u, v, 2 * diameter):
+                for p in self._topology.all_paths(
+                    u, v, self._minmax_dist_diam_factor * diameter):
                     max_cost = 0
                     for swap_node in p:
                         max_cost = max(max_cost,
                                        self._topology.distance(swap_node, v))
                     curr.append((p, max_cost))
+                    counter += 1
+                    if counter == self._minmax_dist_max_paths:
+                        raise ValueError('Too many paths, bailing out')
 
         if logging.getLogger().isEnabledFor(logging.DEBUG):
             for src, destinations in self._all_paths.items():
