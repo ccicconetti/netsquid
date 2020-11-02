@@ -270,6 +270,39 @@ class Stat:
 
         return self
 
+    def add_avg(self, metric, name=None):
+        """Add a new metric that is the average of the given one.
+
+        Parameters
+        ----------
+        metric : str
+            The name of the metric for which to compute the average.
+        name : str, optional
+            The name of the new metric. If None, then the name is given
+            by `metric` with -avg appended.
+
+        Returns
+        -------
+        `Stat`
+            This object.
+
+        Raises
+        ------
+        KeyError
+            If `metric` does not exist.
+        ValueError
+            If `name` is already existing.
+
+        """
+
+        newmetric = f'{metric}-avg' if name is None else name
+        if newmetric in self:
+            raise ValueError(f'Cannot overwrite existing metric: {newmetric}')
+
+        self.count(newmetric, self.get_avg(metric))
+
+        return self
+
     def print(self, metrics=None):
         """Print the content to human-readable format.
         

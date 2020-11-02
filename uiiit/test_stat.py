@@ -186,6 +186,33 @@ class TestStat(unittest.TestCase):
         stat.merge(".*does_not_exist.*", "newmetric")
         self.assertFalse("newmetric" in stat)
 
+    def test_add_avg(self):
+        stat = Stat()
+
+        values = [1, 2, 3]
+        for v in values:
+            stat.add("point", v)
+        stat.add_avg("point", "point-custom")
+        stat.add_avg("point")
+
+        self.assertAlmostEqual(2, stat.get_avg("point-custom"))
+        self.assertAlmostEqual(2, stat.get_avg("point-avg"))
+
+        stat.count("count", 5)
+        stat.count("count", 3)
+        stat.add_avg("count", "count-custom")
+        stat.add_avg("count")
+
+        self.assertAlmostEqual(4, stat.get_avg("count-custom"))
+        self.assertAlmostEqual(1, stat.get_count("count-custom"))
+        self.assertAlmostEqual(4, stat.get_avg("count-avg"))
+        self.assertAlmostEqual(1, stat.get_count("count-avg"))
+
+        with self.assertRaises(KeyError):
+            stat.add_avg("does_not_exist")
+
+        with self.assertRaises(ValueError):
+            stat.add_avg("point", "count")
 
     def test_content_dump_load(self):
         stat1 = make_simple_stat()
