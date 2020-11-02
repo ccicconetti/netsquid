@@ -453,6 +453,14 @@ class MultiStat:
             ret.add(stat.conf()[param])
         return ret
 
+    def apply_to_all(self, func):
+        """Apply a given function to all the `Stat` objects in the collection."""
+
+        for stat in self._stats.values():
+            func(stat)
+
+        return self
+
     @staticmethod
     def json_load(fp):
         """Deserialize from the given stream to a new `MultiStat` object."""

@@ -387,6 +387,20 @@ class TestMultiStat(unittest.TestCase):
         with self.assertRaises(KeyError):
             mstat.param_values('new_par')
 
+    def test_apply_to_all(self):
+        mstat = MultiStat([
+            make_simple_stat(par1=10),
+            make_simple_stat(par1=20),
+        ])
+
+        conf1 = Stat(Conf(par1=10, par2="hello"))
+        conf2 = Stat(Conf(par1=20, par2="hello"))
+
+        avg = mstat[conf1].get_avg("mp")
+        mstat.apply_to_all(lambda x : x.scale('mp', 2.0))
+        self.assertAlmostEqual(avg * 2.0, mstat[conf1].get_avg("mp"))
+        self.assertAlmostEqual(avg * 2.0, mstat[conf2].get_avg("mp"))
+
     @unittest.skip
     def test_save_to_json(self):
         mstat = MultiStat([
