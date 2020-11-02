@@ -7,7 +7,8 @@ from traffic import (
     SingleConstantApplication,
     SingleRandomApplication,
     MultiConstantApplication,
-    MultiRandomApplication
+    MultiRandomApplication,
+    MultiPoissonApplication,
 )
 
 class TestApplication(unittest.TestCase):
@@ -123,6 +124,39 @@ class TestApplication(unittest.TestCase):
                 found.add(pair[1])
 
         self.assertEqual(everybody, found)
+
+    def test_multi_poisson_application(self):
+        seed = 42
+
+        with self.assertRaises(ValueError):
+            MultiPoissonApplication("App", [], 2, 1, seed)
+
+        with self.assertRaises(ValueError):
+            MultiPoissonApplication(
+                "App", [["alice", "alice"]], 2, 1, seed)
+
+        with self.assertRaises(ValueError):
+            MultiPoissonApplication(
+                "App", [["alice", "bob"], ["alice", "charlie"]], 2, -1, seed)
+
+        app = MultiPoissonApplication(
+            "App", [["alice", "bob"], ["alice", "charlie"], ["bob", "charlie"]], 2, 7, seed)
+
+        everybody = {'alice', 'bob', 'charlie'}
+
+        found = set()
+        drawn = set()
+        for t in range(100):
+            pairs = app.get_pairs(t)
+            drawn.add(len(pairs))
+            for pair in pairs:
+                self.assertEqual(7, pair[2])
+                found.add(pair[0])
+                found.add(pair[1])
+
+        self.assertEqual(everybody, found)
+        for i in range(6):
+            self.assertTrue(i in drawn)
 
 if __name__ == '__main__':
     unittest.main()

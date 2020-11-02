@@ -1,6 +1,7 @@
 """This module specifies classes that model an application traffic pattern.
 """
 
+from numpy.random import default_rng
 import random
 
 __all__ = [
@@ -9,6 +10,7 @@ __all__ = [
     "SingleRandomApplication",
     "MultiConstantApplication",
     "MultiRandomApplication",
+    "MultiPoissonApplication",
     ]
 
 class Application:
@@ -201,7 +203,7 @@ class MultiConstantApplication(MultiApplication):
 class MultiRandomApplication(MultiConstantApplication):
     """Return a random list of pairs from a set.
     
-    All pairs returned have thxe same maximum number of qubits.
+    All pairs returned have the same maximum number of qubits.
 
     The `timeslot` parameter in `get_pairs` is ignored, hence multiple calls
     to method with the same value of `timeslot` will result, in general,
@@ -233,3 +235,41 @@ class MultiRandomApplication(MultiConstantApplication):
 
     def _get_pairs(self):
         return random.sample(self._pairs, self._cardinality)
+
+
+class MultiPoissonApplication(MultiConstantApplication):
+    """Return a random list of pairs from a set.
+    
+    All pairs returned have thxe same maximum number of qubits.
+
+    The `timeslot` parameter in `get_pairs` is ignored, hence multiple calls
+    to method with the same value of `timeslot` will result, in general,
+    in a different result.
+
+    Parameters
+    ----------
+    name : str
+        A name to identify this application.
+    pairs : list
+        The list of pairs to be returned. Must be non-empty.
+    cardinality : int
+        The average number of pairs to return.
+    max_qubits : int
+        The maximum number of qubits required.
+    seed : int
+        The seed to initialize the internal RNG.
+    
+    """
+
+    def __init__(self, name, pairs, cardinality, max_qubits, seed):
+        super().__init__(name, pairs, max_qubits)
+
+        if cardinality < 0:
+            raise ValueError(f'Average number of pairs cannot be negative: {cardinality}')
+        
+        self._rng         = default_rng(seed)
+        self._cardinality = cardinality
+
+    def _get_pairs(self):
+        how_many = self._rng.poisson(self._cardinality, None)
+        return random.choices(self._pairs, k=how_many)
