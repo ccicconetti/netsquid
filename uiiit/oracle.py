@@ -182,7 +182,7 @@ class Oracle(Protocol):
                 del e2e_pairs[cur_pair_ndx]
                 continue
             if cur_pair[2] == 0: # Special value: means infinite
-                raise NotImplementedError()
+                cur_pair_ndx += 1
             else:
                 if cur_pair[2] == 1:
                     # All the entanglements have been served
@@ -425,7 +425,6 @@ class Oracle(Protocol):
         """The path `path_id` in this timeslot is successful."""
 
         path = self.path[path_id]
-        assert path.pair_id in self._pending_pairs
 
         # Distance on the original topology of the two end nodes
         dist = len(path.swap_nodes)
@@ -441,11 +440,12 @@ class Oracle(Protocol):
 
         # Record delay as the time between when the e2e pair was requested
         # and when all its qubits have been established an end-to-end entanglement.
-        pair = self._pending_pairs[path.pair_id]
-        if pair[0][2] == 0:           
-            delay = ns.sim_time() - pair[1]
-            self._stat.add('delay', delay * 1e-6)  # convert ns to ms
-            del self._pending_pairs[path.pair_id]
+        if path.pair_id in self._pending_pairs:
+            pair = self._pending_pairs[path.pair_id]
+            if pair[0][2] == 0:           
+                delay = ns.sim_time() - pair[1]
+                self._stat.add('delay', delay * 1e-6)  # convert ns to ms
+                del self._pending_pairs[path.pair_id]
 
         # Record latency as the time between when the entanglement was ready
         # at each node and the time when all the corrections have been applied
