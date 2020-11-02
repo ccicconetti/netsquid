@@ -91,12 +91,14 @@ class Oracle(Protocol):
         self.mem_pos  = dict()
         self.path     = dict()
 
-        self._all_paths = None
+        self._all_paths    = None
+        self._longest_path = None
         if algorithm == 'minmax-dist':
             with Chronometer():
                 self._initialize_min_max_dist()
 
-        logging.debug(f"Create Oracle for network {network.name}, app {app.name}, nodes: {topology.node_names}")
+        logging.debug((f"Create Oracle for network {network.name}, "
+                       f"app {app.name}, nodes: {topology.node_names}"))
 
     def link_good(self, node_name, positions):
         """Mark a link as good, i.e., entanglement has succeeded.
@@ -317,12 +319,13 @@ class Oracle(Protocol):
 
         elif self._algorithm == 'minmax-dist':
             assert self._all_paths is not None
+            assert self._longest_path is not None
 
             curr = None
-            for path in self._all_paths[src][dst]:
+            for cand in self._all_paths[src][dst]:
                 # Discard path if it cannot be implemented in the reduced graph.
                 not_usable = False
-                full_path = [src] + path[0] + [dst]
+                full_path = [src] + cand[0] + [dst]
                 for i in range(len(full_path)-1):
                     if full_path[i+1] not in nodes or \
                         graph_bi.isedge(full_path[i], full_path[i+1]) == False:
@@ -330,10 +333,22 @@ class Oracle(Protocol):
                         break
                 if not_usable:
                     continue
-                if curr is None or \
-                    curr[1] > path[1] or \
-                    (curr[1] == path[1] and len(curr[0]) > len(path[0])):
-                    curr = path
+                if curr is None:
+                    curr = cand
+                else:
+                    curr_cost = curr[1] * self._longest_path + len(curr[0])
+                    cand_cost = cand[1] * self._longest_path + len(cand[0])
+                    if curr_cost > cand_cost:
+                        curr = cand
+
+            # Print where SPF would have picked a shorter path, in num hops
+            # xxxprev, _ = graph_bi.spt(dst)            
+            # if xxxprev is not None and xxxprev[src] is not None:
+            #     xxxcurr = Topology.traversing(xxxprev, src, dst)
+            #     if len(curr[0]) > len(xxxcurr):
+            #         print(f'{src} -> {dst}, mmd {len(curr[0])} vs spf {len(xxxcurr)}, mmd {curr[0]} spf {xxxcurr}')
+            #         for xxxpath in self._all_paths[src][dst]:
+            #             print(f'{xxxpath[0]} cost {xxxpath[1]}')
 
             return curr[0] if curr is not None else None
 
@@ -370,6 +385,9 @@ class Oracle(Protocol):
         # Distance on the original topology of the two end nodes
         dist = len(path.swap_nodes)
 
+        # Number of measurements
+        self._stat.add("meas", dist)
+
         # Measure fidelity
         qubit_a, = self._network.nodes[path.alice_name].qmemory.peek([path.alice_edge_id])
         qubit_b, = self._network.nodes[path.bob_name].qmemory.peek([path.bob_edge_id])
@@ -383,11 +401,11 @@ class Oracle(Protocol):
         self._stat.add(f"latency-{dist}", latency * 1e-6) # convert ns to ms
 
         # Record the physical distance, in the shorted path, of e2e entanglement.
-        self._stat.add(f"distance-{dist}",
-                       self._topology.distance_path(
-                           self._topology.get_id_by_name(path.bob_name),
-                           self._topology.get_id_by_name(path.alice_name),
-                           path.swap_nodes))
+        path_length = self._topology.distance_path(
+            self._topology.get_id_by_name(path.bob_name),
+            self._topology.get_id_by_name(path.alice_name),
+            path.swap_nodes)
+        self._stat.add("length", path_length)
 
         # Counter of successful e2e entanglements.
         fid_thresholds = [0, 0.6, 0.7, 0.8, 0.9]
@@ -407,6 +425,7 @@ class Oracle(Protocol):
         diameter = Topology("edges", edges=self._topology.edges()).diameter()
         nodes = self._topology.nodes()
         self._all_paths = dict()
+        self._longest_path = None
         counter = 0
         for u in nodes:
             self._all_paths[u] = dict()
@@ -422,6 +441,9 @@ class Oracle(Protocol):
                         max_cost = max(max_cost,
                                        self._topology.distance(swap_node, v))
                     curr.append((p, int(0.5 + max_cost)))
+                    self._longest_path = \
+                        len(p) if self._longest_path is None else \
+                        max(self._longest_path, len(p))
                     counter += 1
                     if counter == self._minmax_dist_max_paths:
                         raise ValueError('Too many paths, bailing out')
