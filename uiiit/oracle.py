@@ -21,19 +21,23 @@ class Oracle(Protocol):
     class Path:
         def __init__(self, alice_name, bob_name,
                      alice_edge_id, bob_edge_id,
-                     swap_nodes, timestamp):
+                     swap_nodes, timestamp,
+                     pair_id):
             self.alice_name    = alice_name
             self.bob_name      = bob_name
             self.alice_edge_id = alice_edge_id
             self.bob_edge_id   = bob_edge_id
             self.swap_nodes    = swap_nodes
             self.timestamp     = timestamp
+            self.pair_id       = pair_id
 
         def __repr__(self):
             return (f'path between {self.alice_name} ({self.alice_edge_id}) '
-                    f'and {self.bob_name} ({self.bob_edge_id}), with '
-                    f'{len(self.swap_nodes)} swaps, '
-                    f'established at time {self.timestamp:.1f}')
+                    f'and {self.bob_name} ({self.bob_edge_id}), '
+                    f'pair {self.pair_id}, '
+                    f'established at time {self.timestamp:.1f} '
+                    f'with {len(self.swap_nodes)} swaps')
+                    
 
     """Network oracle: knows everything, can communicate at zero delay.
 
@@ -50,6 +54,8 @@ class Oracle(Protocol):
         end-to-end entanglement timeslot by timeslot.
     stat : `uiiit.simstat.Stat`
         The statistics collection module.
+    max_delay : float
+        Time after which a pending e2e pair is dropped.
 
     Properties
     ----------
@@ -74,18 +80,21 @@ class Oracle(Protocol):
         This structure is overwritten at every new timeslot.
 
     """
-    def __init__(self, algorithm, network, topology, app, stat):
+    def __init__(self, algorithm, network, topology, app, stat, max_delay):
         super().__init__(name="Oracle")
 
-        self._algorithm = algorithm
-        self._topology  = topology
+        self._algorithm     = algorithm
+        self._topology      = topology
         self._topology_hops = Topology('edges', edges=topology.edges())
-        self._network   = network
-        self._app       = app
-        self._stat      = stat
+        self._network       = network
+        self._app           = app
+        self._stat          = stat
+        self._max_delay   = max_delay
 
-        self._edges = []
+        self._edges         = []
         self._pending_nodes = set(topology.node_names)
+        self._next_pair_id  = 0
+        self._pending_pairs = dict()
 
         self.timeslot = 0
         self.mem_pos  = dict()
@@ -134,35 +143,68 @@ class Oracle(Protocol):
     def _routing(self):
         """Perform routing based on the info received by the nodes."""
 
-        # Remove previous entanglement data structure
+        # Remove previous entanglement data structure.
         self.mem_pos.clear()
         self.path.clear()
 
+        # Remove pending e2e pairs that are too old.
+        to_remove = []
+        now = ns.sim_time()
+        for cur_pair_id, cur_pair in self._pending_pairs.items():
+            if (now - cur_pair[1]) > self._max_delay:
+                to_remove.append(cur_pair_id)
+        
+        if to_remove:
+            logging.debug((f"{ns.sim_time():.1f}: dropping the following "
+                           f"e2e pairs: {to_remove}"))
+        for cur_pair_id in to_remove:
+            self._stat.count("failure", 1)
+            del self._pending_pairs[cur_pair_id]
+
         # Seek end-to-end entanglement paths with the current edges
         # The end-to-end pairs from the applications are served round-robin
-        e2e_pairs = self._app.get_pairs(self.timeslot)
+        new_e2e_pairs = self._app.get_pairs(self.timeslot)
+        for pair in new_e2e_pairs:
+            self._pending_pairs[self._next_pair_id] = (pair, now)
+            self._next_pair_id += 1
+        e2e_pairs = sorted(self._pending_pairs.keys())
         path_id = 0
         cur_pair_ndx = len(e2e_pairs) # Beyond last element
         while e2e_pairs:
             # Wrap-around if the end is reached
             if cur_pair_ndx == len(e2e_pairs):
                 cur_pair_ndx = 0 # Wrap-around
-            cur_pair = e2e_pairs[cur_pair_ndx]
-            if self._add_path(cur_pair[0], cur_pair[1], path_id) == False:
+            cur_pair_id = e2e_pairs[cur_pair_ndx]
+            cur_elem = self._pending_pairs[cur_pair_id]
+            cur_pair = cur_elem[0]
+            if self._add_path(cur_pair[0], cur_pair[1], path_id, cur_pair_id) == False:
                 # The current pair cannot be served in the reduced graph
                 del e2e_pairs[cur_pair_ndx]
                 continue
-            if cur_pair[2] == 1:
-                # All the entanglements have been served
-                del e2e_pairs[cur_pair_ndx]
+            if cur_pair[2] == 0: # Special value: means infinite
+                raise NotImplementedError()
             else:
-                if cur_pair[2] != 0: # Special value: means infinite
-                    e2e_pairs[cur_pair_ndx] = (cur_pair[0], cur_pair[1], cur_pair[2]-1)
-                cur_pair_ndx += 1
+                if cur_pair[2] == 1:
+                    # All the entanglements have been served
+                    del e2e_pairs[cur_pair_ndx]
+                else:
+                    cur_pair_ndx += 1
+                self._pending_pairs[cur_pair_id] = (
+                    (cur_pair[0], cur_pair[1], cur_pair[2] - 1),
+                    cur_elem[1]
+                    )
             path_id += 1
     
         logging.debug((f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, "
                        f"found {path_id} end-to-end entanglement paths"))
+
+        # Notify immediately success for all the e2e paths with no swap nodes.
+        immediate_success = []
+        for path_id, path in self.path.items():
+            if not path.swap_nodes:
+                immediate_success.append(path_id)
+        for path_id in immediate_success:
+            self.success(path_id)
 
         # Notify all nodes that they can proceed
         self.send_signal(Signals.SUCCESS)
@@ -173,7 +215,7 @@ class Oracle(Protocol):
         # Wait for all nodes again
         self._pending_nodes = set(self._topology.node_names)
 
-    def _add_path(self, alice_name, bob_name, path_id):
+    def _add_path(self, alice_name, bob_name, path_id, cur_pair_id):
         """Try to find a new end-to-end entanglement path.
 
         If a path is found, then `self.mem_pos` and `self.path` are
@@ -187,6 +229,8 @@ class Oracle(Protocol):
             The name of the first node of the end-to-end entanglement path.
         path_id : int
             The identifier of the path to use.
+        cur_pair_id : int
+            The identifier of the e2e pair to serve.
         
         Returns
         -------
@@ -240,7 +284,8 @@ class Oracle(Protocol):
             self._topology.incoming_id(alice, alice_nxt),
             self._topology.incoming_id(bob, bob_prv),
             swap_nodes,
-            ns.sim_time()
+            ns.sim_time(),
+            cur_pair_id
         )
 
         # If there are no intermediate nodes, then alice and bob shared
@@ -249,7 +294,6 @@ class Oracle(Protocol):
         if not swap_nodes:
             self._edges.remove([alice, bob])
             self._edges.remove([bob, alice])
-            self.success(path_id)
             return True
 
         for i in range(len(swap_nodes)):
@@ -381,6 +425,7 @@ class Oracle(Protocol):
         """The path `path_id` in this timeslot is successful."""
 
         path = self.path[path_id]
+        assert path.pair_id in self._pending_pairs
 
         # Distance on the original topology of the two end nodes
         dist = len(path.swap_nodes)
@@ -393,6 +438,14 @@ class Oracle(Protocol):
         qubit_b, = self._network.nodes[path.bob_name].qmemory.peek([path.bob_edge_id])
         fidelity = ns.qubits.fidelity([qubit_a, qubit_b], ks.b00, squared=True)
         self._stat.add(f"fidelity-{dist}", fidelity)
+
+        # Record delay as the time between when the e2e pair was requested
+        # and when all its qubits have been established an end-to-end entanglement.
+        pair = self._pending_pairs[path.pair_id]
+        if pair[0][2] == 0:           
+            delay = ns.sim_time() - pair[1]
+            self._stat.add('delay', delay * 1e-6)  # convert ns to ms
+            del self._pending_pairs[path.pair_id]
 
         # Record latency as the time between when the entanglement was ready
         # at each node and the time when all the corrections have been applied
