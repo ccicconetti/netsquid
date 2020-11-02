@@ -16,7 +16,7 @@ __all__ = [
 
 class Oracle(Protocol):
     _minmax_dist_max_paths   = 2**24
-    _minmax_dist_diam_factor = 2
+    _minmax_dist_diam_factor = 10
 
     class Path:
         def __init__(self, alice_name, bob_name,
