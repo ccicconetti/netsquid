@@ -980,8 +980,8 @@ class Topography2D(TopographyDist):
             if size < 0:
                 raise ValueError(f'The disc radius cannot be negative: {size}')
             for u in range(nodes):
-                dist_from_origin = random.uniform(0, size)
-                theta = random.uniform(0, math.pi)
+                dist_from_origin = size * math.sqrt(random.random())
+                theta = random.uniform(0, 2 * math.pi)
                 self._positions[u] = (
                     dist_from_origin * math.cos(theta),
                     dist_from_origin * math.sin(theta)
