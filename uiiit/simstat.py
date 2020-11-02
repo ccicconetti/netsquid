@@ -401,6 +401,16 @@ class MultiStat:
 
         return list(self._stats.values())
 
+    def get_stats(self, **params):
+        """Return a list of `Stat` objects matching the given parameters."""
+
+        stats = []
+        for stat in self._stats.values():
+            if stat.conf().match(**params):
+                stats.append(stat)
+
+        return stats
+
     def __len__(self):
         """Return the number of elements stored in the container."""
 

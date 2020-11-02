@@ -301,6 +301,21 @@ class TestMultiStat(unittest.TestCase):
         self.assertFalse(mstat.add([stat1, stat2, stat3]))
         self.assertEqual(3, len(mstat))
 
+    def test_get_stats(self):
+        mstat = MultiStat([
+            make_simple_stat(par1=10, newpar='b', onlypar=0),
+            make_simple_stat(par1=20, newpar='a'),
+            make_simple_stat(par1=30, newpar='a'),
+            ])
+        
+        self.assertEqual(3, len(mstat.get_stats(par2='hello')))
+        self.assertEqual(2, len(mstat.get_stats(newpar='a')))
+        self.assertEqual(1, len(mstat.get_stats(newpar='a', par1=20)))
+        self.assertEqual(0, len(mstat.get_stats(newpar='a', par1=10)))
+
+        with self.assertRaises(KeyError):
+            mstat.get_stats(onlypar=0)
+
     def test_json(self):
         # create a collection
         mstat = MultiStat()
