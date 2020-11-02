@@ -6,6 +6,7 @@ import math
 import matplotlib
 import matplotlib.pyplot as plt
 import os
+import re
 import statsmodels.stats.api as sms
 
 __all__ = [
@@ -77,6 +78,13 @@ class Stat:
             return False
 
         return self._conf.all_params() == other._conf.all_params()
+
+    def __contains__(self, metric):
+        """Return True if the metric is in this object."""
+
+        if metric in self._counts.keys() or metric in self._points.keys():
+            return True
+        return False
 
     def conf(self):
         """Return the conf object."""
@@ -208,6 +216,59 @@ class Stat:
             with open(f'{path}/{base_name}.{metric_name}.dat', 'w') as outfile:
                 for value in values:
                     outfile.write(f'{value}\n')
+
+    def merge(self, regex, outname):
+        """Merge all the values of a number of metrics into a new one.
+
+        Parameters
+        ----------
+        regex : str
+            The regular expression to decide which metrics to match.
+            If no metrics match then the new metric is not added, but no
+            exception is raised.
+        outname : str
+            The name of the output metric.
+
+        Returns
+        -------
+        `Stat`
+            This object.
+        
+        Raises
+        ------
+        KeyError
+            If `regex` matches a mix of point and count metrics.
+        ValueError
+            If `outname` already exists.
+        
+        """
+
+        if outname in self:
+            raise ValueError(f'Cannot overwrite metric: {outname}')
+
+        newrecord = None
+        for metric, record in self._counts.items():
+            if re.match(regex, metric):
+                if newrecord is None:
+                    newrecord = [0, 0]
+                newrecord[0] += record[0]
+                newrecord[1] += record[1]
+        
+        newpoints = []
+        for metric, values in self._points.items():
+            if re.match(regex, metric):
+                newpoints += values
+
+        if newrecord is not None and newpoints:
+            raise KeyError(f'Regex matches both count and point metrics: {regex}')
+
+        if newrecord is not None:
+            self._counts[outname] = newrecord
+
+        if newpoints:
+            self._points[outname] = newpoints
+
+        return self
 
     def print(self, metrics=None):
         """Print the content to human-readable format.

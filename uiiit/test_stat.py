@@ -156,6 +156,37 @@ class TestStat(unittest.TestCase):
         with self.assertRaises(KeyError):
             stat.scale("m3", 1)
 
+    def test_merge(self):
+        stat = Stat()
+
+        values = [1, 2, 3]
+        for v in values:
+            stat.add("point-1", v)
+        stat.add("point-2", 4)
+        stat.merge("point-.*", "newpoint")
+
+        self.assertEqual(4, len(stat.get_all("newpoint")))
+        self.assertAlmostEqual(2.5, stat.get_avg("newpoint"))
+
+        stat.count("count-1", 5)
+        stat.count("count-1", 3)
+        stat.count("count-2", 2)
+        stat.count("count-3", -5)
+        stat.merge("count-.*", "newcount")
+
+        self.assertEqual(5, stat.get_all("newcount"))
+        self.assertEqual(4, stat.get_count("newcount"))
+
+        with self.assertRaises(KeyError):
+            stat.merge(".*o.*", "newhybrid")
+
+        with self.assertRaises(ValueError):
+            stat.merge("point-.*", "count-1")
+
+        stat.merge(".*does_not_exist.*", "newmetric")
+        self.assertFalse("newmetric" in stat)
+
+
     def test_content_dump_load(self):
         stat1 = make_simple_stat()
         content1 = stat1.content_dump()
@@ -176,8 +207,8 @@ class TestStat(unittest.TestCase):
         stat = make_simple_stat()
         stat.export(path)
 
-        self.assertTrue(os.path.exists(f'{path}/par1=42.par2=hello-mc.dat'))
-        self.assertTrue(os.path.exists(f'{path}/par1=42.par2=hello-mp.dat'))
+        self.assertTrue(os.path.exists(f'{path}/par1=42.par2=hello.mc.dat'))
+        self.assertTrue(os.path.exists(f'{path}/par1=42.par2=hello.mp.dat'))
 
     @unittest.skip
     def test_print(self):
@@ -294,10 +325,10 @@ class TestMultiStat(unittest.TestCase):
         mstat.add(make_simple_stat(new_param=42))
         mstat.export(path)
 
-        self.assertTrue(os.path.exists(f'{path}/new_param=42.par1=42.par2=hello-mc.dat'))
-        self.assertTrue(os.path.exists(f'{path}/new_param=42.par1=42.par2=hello-mp.dat'))
-        self.assertTrue(os.path.exists(f'{path}/par1=42.par2=hello-mc.dat'))
-        self.assertTrue(os.path.exists(f'{path}/par1=42.par2=hello-mp.dat'))
+        self.assertTrue(os.path.exists(f'{path}/new_param=42.par1=42.par2=hello.mc.dat'))
+        self.assertTrue(os.path.exists(f'{path}/new_param=42.par1=42.par2=hello.mp.dat'))
+        self.assertTrue(os.path.exists(f'{path}/par1=42.par2=hello.mc.dat'))
+        self.assertTrue(os.path.exists(f'{path}/par1=42.par2=hello.mp.dat'))
 
     def test_filter(self):
         mstat = MultiStat([
