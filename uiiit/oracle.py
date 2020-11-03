@@ -37,7 +37,19 @@ class Oracle(Protocol):
                     f'pair {self.pair_id}, '
                     f'established at time {self.timestamp:.1f} '
                     f'with {len(self.swap_nodes)} swaps')
-                    
+
+    class MemPos:
+        def __init__(self, prv_pos, nxt_pos, dst_name, cur_name, path_id):
+            self.prv_pos  = prv_pos
+            self.nxt_pos  = nxt_pos
+            self.dst_name = dst_name
+            self.cur_name = cur_name
+            self.path_id  = path_id
+
+        def __repr__(self):
+            return (f'node {self.cur_name}, path {self.path_id} '
+                    f'towards {self.dst_name}, memory positions '
+                    f'prv {self.prv_pos} nxt {self.nxt_pos}')
 
     """Network oracle: knows everything, can communicate at zero delay.
 
@@ -45,6 +57,8 @@ class Oracle(Protocol):
     ----------
     algorithm : { 'spf-hops', 'spf-dist', 'minmax-dist' }
         The algorithm to use for path selection.
+    skip_policy : { 'none', 'random_skip' }
+        The policy to use when choosing whether to skip a given e2e path.
     network : `netsquid.nodes.network.Network`
         The network of nodes.
     topology : `uiiit.topology.Topology`
@@ -80,10 +94,12 @@ class Oracle(Protocol):
         This structure is overwritten at every new timeslot.
 
     """
-    def __init__(self, algorithm, network, topology, app, stat, max_delay):
+    def __init__(self, algorithm, skip_policy,
+                 network, topology, app, stat, max_delay):
         super().__init__(name="Oracle")
 
         self._algorithm     = algorithm
+        self._skip_policy   = skip_policy
         self._topology      = topology
         self._topology_hops = Topology('edges', edges=topology.edges())
         self._network       = network
@@ -226,22 +242,41 @@ class Oracle(Protocol):
         # Add new pairs generated from the Application
         self._add_new_pairs()
 
-        # Seek end-to-end entanglement paths with the current edges
-        # The end-to-end pairs from the applications are served round-robin
-        e2e_pairs = sorted(self._pending_pairs.keys())
+        # Seek end-to-end entanglement paths with the current edges.
+        # The end-to-end pairs from the applications are served round-robin.
+        # The end-to-end pairs are sorted in chronological order or arrival
+        # (since their IDs are assigned incrementally) and each is initialized
+        # with a False flag, which specifies whether they have been skipped or
+        # not in this routing epoch that will be used to make sure that the
+        # same end-to-end pair is not skipped twice.
+        e2e_pairs = []
+        for pair_id in sorted(self._pending_pairs.keys()):
+            e2e_pairs.append((pair_id, False))
         path_id = 0
         cur_pair_ndx = len(e2e_pairs) # Beyond last element
         while e2e_pairs:
             # Wrap-around if the end is reached
             if cur_pair_ndx == len(e2e_pairs):
                 cur_pair_ndx = 0 # Wrap-around
-            cur_pair_id = e2e_pairs[cur_pair_ndx]
+            cur_pair_id = e2e_pairs[cur_pair_ndx][0]
             cur_elem = self._pending_pairs[cur_pair_id]
             cur_pair = cur_elem[0]
-            if self._add_path(cur_pair[0], cur_pair[1], path_id, cur_pair_id) == False:
+            add_path_ret = self._add_path(
+                cur_pair[0], cur_pair[1], path_id, cur_pair_id)
+            if add_path_ret is None:
                 # The current pair cannot be served in the reduced graph
                 del e2e_pairs[cur_pair_ndx]
                 continue
+
+            # Update the internal data structures
+            self.path[path_id] = add_path_ret[0]
+            for e in add_path_ret[1]:
+                self._edges.remove(e)
+            for mem_pos in add_path_ret[2]:
+                if mem_pos.cur_name not in self.mem_pos:
+                    self.mem_pos[mem_pos.cur_name] = []
+                self.mem_pos[mem_pos.cur_name].append(mem_pos)
+
             if cur_pair[2] == 0: # Special value: means infinite
                 cur_pair_ndx += 1
             else:
@@ -291,7 +326,7 @@ class Oracle(Protocol):
         for cur_pair_id in to_remove:
             self._stat.count("failure", 1)
             del self._pending_pairs[cur_pair_id]
-            
+
     def _add_new_pairs(self):
         """Add new pairs generated from the Application."""
 
@@ -304,8 +339,8 @@ class Oracle(Protocol):
     def _add_path(self, alice_name, bob_name, path_id, cur_pair_id):
         """Try to find a new end-to-end entanglement path.
 
-        If a path is found, then `self.mem_pos` and `self.path` are
-        added a new element, and the edges used are pruned from `self._edges`.
+        Whether a new path is found or not, the internal data structures
+        are not modified.
 
         Parameters
         ----------
@@ -320,7 +355,11 @@ class Oracle(Protocol):
         
         Returns
         -------
-            True if a path was found, False otherwise.
+            None if an end-to-end path was not found for the given pair of nodes.
+            Otherwise, it returns a tuple containing all the info regarding the
+            path found: a `OraclePath` structure, the list of edges to remove
+            along the entanglement path, a list of `Oracle.MemPos` structures.
+            The latter can be empty, if no swapping is required at all.
 
         """
 
@@ -337,7 +376,7 @@ class Oracle(Protocol):
             logging.debug((f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, "
                            f"{alice_name} -> {bob_name} [path {path_id}]: "
                            f"empty reduced graph"))
-            return False
+            return None
 
         # logging.debug(f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, graph {graph_uni}")
         logging.debug(f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, reduced graph {graph_bi}")
@@ -355,7 +394,7 @@ class Oracle(Protocol):
             logging.debug((f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, "
                            f"{alice_name} -> {bob_name} [path {path_id}]: "
                            f"no way to create an e2e entanglement path"))
-            return False
+            return None
 
         # There is a path between alice and bob
         assert alice is not None
@@ -364,7 +403,7 @@ class Oracle(Protocol):
 
         alice_nxt = swap_nodes[-1] if swap_nodes else bob
         bob_prv = swap_nodes[0] if swap_nodes else alice
-        self.path[path_id] = Oracle.Path(
+        oracle_path = Oracle.Path(
             alice_name,
             bob_name,
             self._topology.incoming_id(alice, alice_nxt),
@@ -378,10 +417,10 @@ class Oracle(Protocol):
         # an entangling connection, hence there is no need to send
         # out corrections, and the qubits received can be used immediately
         if not swap_nodes:
-            self._edges.remove([alice, bob])
-            self._edges.remove([bob, alice])
-            return True
+            return (oracle_path, [[alice, bob], [bob, alice]], [])
 
+        edges_to_remove = []
+        mem_pos_to_add  = []
         for i in range(len(swap_nodes)):
             cur = swap_nodes[i]
             prv = bob if i == 0 else swap_nodes[i-1]
@@ -394,21 +433,19 @@ class Oracle(Protocol):
                  f"on node {cur} entangle node {prv} (mem pos {prv_pos}) "
                  f"and node {nxt} (mem pos {nxt_pos})"))
 
-            self._edges.remove([cur, prv])
-            self._edges.remove([prv, cur])
+            edges_to_remove.append([cur, prv])
+            edges_to_remove.append([prv, cur])
 
-            cur_name = self._topology.get_name_by_id(cur)
-            if cur_name not in self.mem_pos:
-                self.mem_pos[cur_name] = []
-            self.mem_pos[cur_name].append([
+            mem_pos_to_add.append(Oracle.MemPos(
                 prv_pos, nxt_pos,
                 self._topology.get_name_by_id(bob),
-                path_id])
+                self._topology.get_name_by_id(cur),
+                path_id))
 
-        self._edges.remove([alice, alice_nxt])
-        self._edges.remove([alice_nxt, alice])                
+        edges_to_remove.append([alice, alice_nxt])
+        edges_to_remove.append([alice_nxt, alice])                
 
-        return True
+        return (oracle_path, edges_to_remove, mem_pos_to_add)
 
     def _path_selection(self, src, dst, graph_bi):
         """Return the list of intermediate nodes to perform swapping.

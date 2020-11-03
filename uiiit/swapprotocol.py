@@ -187,28 +187,34 @@ class SwapProtocol(NodeProtocol):
                             positions.append(pos)
                     self._oracle.link_good(self.node.name, positions)
 
-                    # Wait for the oracle to take its decisions
+                    # Wait for the oracle to take its decisions.
                     yield self.await_signal(self._oracle, Signals.SUCCESS)
 
-                    # Entangle the memory positions as specified by the oracle
+                    # Entangle the memory positions as specified by the oracle.
                     if self.node.name in self._oracle.mem_pos:
-                        for item in self._oracle.mem_pos[self.node.name]:
-                            pos1, pos2, dst_name, path = item
-                            logging.debug(f"{ns.sim_time():.1f}: {self.node.name} ready to swap by measuring on {pos1} and {pos2}")
-                            self.node.qmemory.execute_program(self._swap_program, qubit_mapping=[pos1, pos2])
+                        for mem_pos in self._oracle.mem_pos[self.node.name]:
+                            logging.debug((f"{ns.sim_time():.1f}: {self.node.name} "
+                                           f"ready to swap by measuring on {mem_pos.prv_pos} "
+                                           f"and {mem_pos.nxt_pos} for path {mem_pos.path_id}"))
+                            self.node.qmemory.execute_program(
+                                self._swap_program,
+                                qubit_mapping=[mem_pos.prv_pos, mem_pos.nxt_pos])
                             yield self.await_program(self.node.qmemory)
                             m, = self._swap_program.output["m"]
                             m1, m2 = self._bsm_op_indices[m]
 
                             # Send result to one of the two parties creating the
                             # end-to-end entanglement
-                            cchan = self._cport_name(dst_name)
-                            logging.debug((f"{ns.sim_time():.1f}: {self.node.name} sending corrections [{m1}, {m2}] "
-                                        f"(path {path}, timeslot {self._oracle.timeslot}) to {dst_name} via {cchan}"))
+                            cchan = self._cport_name(mem_pos.dst_name)
+                            logging.debug((f"{ns.sim_time():.1f}: {self.node.name} "
+                                           f"sending corrections [{m1}, {m2}] "
+                                           f"(path {mem_pos.path_id}, "
+                                           f"timeslot {self._oracle.timeslot}) to "
+                                           f"{mem_pos.dst_name} via {cchan}"))
                             msg =  Message([SwapProtocol.CorrectionMessage(
                                 m1, m2,
-                                self.node.name, dst_name,
-                                path, self._oracle.timeslot)])
+                                self.node.name, mem_pos.dst_name,
+                                mem_pos.path_id, self._oracle.timeslot)])
                             self.node.ports[cchan].tx_output(msg)
 
                 # Check if a QPU operation is complete
