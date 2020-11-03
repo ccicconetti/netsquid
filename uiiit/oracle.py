@@ -221,23 +221,11 @@ class Oracle(Protocol):
         # Remove previous entanglement data structure.
         self.mem_pos.clear()
         self.path.clear()
-
-        # Remove pending e2e pairs that are too old.
-        to_remove = []
-        now = ns.sim_time()
-        for cur_pair_id, cur_pair in self._pending_pairs.items():
-            if (now - cur_pair[1]) > self._max_delay:
-                to_remove.append(cur_pair_id)
-        
-        if to_remove:
-            logging.debug((f"{ns.sim_time():.1f}: dropping the following "
-                           f"e2e pairs: {to_remove}"))
-        for cur_pair_id in to_remove:
-            self._stat.count("failure", 1)
-            del self._pending_pairs[cur_pair_id]
+        self._remove_old_pairs()
 
         # Seek end-to-end entanglement paths with the current edges
         # The end-to-end pairs from the applications are served round-robin
+        now = ns.sim_time()
         new_e2e_pairs = self._app.get_pairs(self.timeslot)
         for pair in new_e2e_pairs:
             self._pending_pairs[self._next_pair_id] = (pair, now)
@@ -289,6 +277,22 @@ class Oracle(Protocol):
 
         # Wait for all nodes again
         self._pending_nodes = set(self._topology.node_names)
+
+    def _remove_old_pairs(self):
+        """Remove pending e2e pairs that are too old."""
+
+        to_remove = []
+        now = ns.sim_time()
+        for cur_pair_id, cur_pair in self._pending_pairs.items():
+            if (now - cur_pair[1]) > self._max_delay:
+                to_remove.append(cur_pair_id)
+        
+        if to_remove:
+            logging.debug((f"{ns.sim_time():.1f}: dropping the following "
+                           f"e2e pairs: {to_remove}"))
+        for cur_pair_id in to_remove:
+            self._stat.count("failure", 1)
+            del self._pending_pairs[cur_pair_id]
 
     def _add_path(self, alice_name, bob_name, path_id, cur_pair_id):
         """Try to find a new end-to-end entanglement path.
