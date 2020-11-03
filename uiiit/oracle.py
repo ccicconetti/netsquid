@@ -289,10 +289,10 @@ class Oracle(Protocol):
                 (self._skip_policy == 'random-skip' and \
                 random.random() < (1 - self._num_swaps_avg / num_swaps))):
 
-                logging.info((f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, "
-                              f"skipping the entry found between {cur_pair[0]} "
-                              f"and {cur_pair[1]} path {path_id}: "
-                              f"swaps avg {self._num_swaps_avg:.1f} cur {num_swaps}"))
+                logging.debug((f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, "
+                               f"skipping the entry found between {cur_pair[0]} "
+                               f"and {cur_pair[1]} path {path_id}: "
+                               f"swaps avg {self._num_swaps_avg:.1f} cur {num_swaps}"))
 
                 # Mark this pair as non-skippable in this routing epoch.
                 e2e_pairs[cur_pair_ndx] = (e2e_pairs[cur_pair_ndx][0], True)
