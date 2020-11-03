@@ -2,6 +2,7 @@
 """
 
 import logging
+import random
 
 import netsquid as ns
 from netsquid.qubits import ketstates as ks
@@ -57,7 +58,7 @@ class Oracle(Protocol):
     ----------
     algorithm : { 'spf-hops', 'spf-dist', 'minmax-dist' }
         The algorithm to use for path selection.
-    skip_policy : { 'none', 'random_skip' }
+    skip_policy : { 'none', 'always-skip', 'random-skip' }
         The policy to use when choosing whether to skip a given e2e path.
     network : `netsquid.nodes.network.Network`
         The network of nodes.
@@ -98,6 +99,9 @@ class Oracle(Protocol):
                  network, topology, app, stat, max_delay):
         super().__init__(name="Oracle")
 
+        assert algorithm in { 'spf-hops', 'spf-dist', 'minmax-dist' }
+        assert skip_policy in { 'none', 'always-skip', 'random-skip' }
+
         self._algorithm     = algorithm
         self._skip_policy   = skip_policy
         self._topology      = topology
@@ -116,11 +120,16 @@ class Oracle(Protocol):
         self.mem_pos  = dict()
         self.path     = dict()
 
+        # Data structures for algorithm == minmax-dist only.
         self._all_paths    = None
         self._longest_path = None
         if algorithm == 'minmax-dist':
             with Chronometer():
                 self._initialize_min_max_dist()
+
+        # Data structures for skip policies.
+        self._num_swaps_avg = 0
+        self._num_swaps_cnt = 0
 
         logging.debug((f"Create Oracle for network {network.name}, "
                        f"app {app.name}, nodes: {topology.node_names}"))
@@ -210,7 +219,7 @@ class Oracle(Protocol):
         latency = ns.sim_time() - path.timestamp
         self._stat.add(f"latency-{dist}", latency * 1e-6) # convert ns to ms
 
-        # Record the physical distance, in the shorted path, of e2e entanglement.
+        # Record the physical distance, in the shortest path, of e2e entanglement.
         path_length = self._topology.distance_path(
             self._topology.get_id_by_name(path.bob_name),
             self._topology.get_id_by_name(path.alice_name),
@@ -267,8 +276,32 @@ class Oracle(Protocol):
                 # The current pair cannot be served in the reduced graph
                 del e2e_pairs[cur_pair_ndx]
                 continue
+            
+            #
+            # An end-to-end path has been found for the current pair: hurray!
+            #
 
-            # Update the internal data structures
+            # Check if, however, the path selected has to be skipped.
+            num_swaps = len(add_path_ret[0].swap_nodes)
+            if e2e_pairs[cur_pair_ndx][1] == False and \
+                num_swaps > self._num_swaps_avg and \
+                (self._skip_policy == 'always-skip' or \
+                (self._skip_policy == 'random-skip' and \
+                random.random() < (1 - self._num_swaps_avg / num_swaps))):
+
+                logging.info((f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, "
+                              f"skipping the entry found between {cur_pair[0]} "
+                              f"and {cur_pair[1]} path {path_id}: "
+                              f"swaps avg {self._num_swaps_avg:.1f} cur {num_swaps}"))
+
+                # Mark this pair as non-skippable in this routing epoch.
+                e2e_pairs[cur_pair_ndx] = (e2e_pairs[cur_pair_ndx][0], True)
+
+                # Move to the next pair in the list, without touching the rest.
+                cur_pair_ndx += 1
+                continue
+
+            # Update the internal data structures.
             self.path[path_id] = add_path_ret[0]
             for e in add_path_ret[1]:
                 self._edges.remove(e)
@@ -277,11 +310,18 @@ class Oracle(Protocol):
                     self.mem_pos[mem_pos.cur_name] = []
                 self.mem_pos[mem_pos.cur_name].append(mem_pos)
 
+            # Update the average number of swaps for the skip policies.
+            self._num_swaps_avg = \
+                (self._num_swaps_avg * self._num_swaps_cnt + num_swaps) / \
+                (self._num_swaps_cnt + 1)
+            self._num_swaps_cnt += 1
+
+            # Move to the next pair.
             if cur_pair[2] == 0: # Special value: means infinite
                 cur_pair_ndx += 1
             else:
                 if cur_pair[2] == 1:
-                    # All the entanglements have been served
+                    # All the entanglements have been served.
                     del e2e_pairs[cur_pair_ndx]
                 else:
                     cur_pair_ndx += 1
