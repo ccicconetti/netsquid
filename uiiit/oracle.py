@@ -140,6 +140,81 @@ class Oracle(Protocol):
             # All nodes have marked their successes/failures, time to do routing!
             self._routing()
 
+    def channel_id(self, src, dst):
+        """Return the channel identifier where to send a message.
+
+        Parameters
+        ----------
+        src : str
+            Name of the current node that will send the message.
+        dst : str
+            Name of the destination node.
+        
+        Returns
+        -------
+        int
+            The identifier of the channel where to send the message.
+        
+        """
+
+        src_id = self._topology.get_id_by_name(src)
+        dst_id = self._topology.get_id_by_name(dst)
+        nxt_id = self._topology.next_hop(src_id, dst_id)
+        return self._topology.incoming_id(src_id, nxt_id)
+        
+    def success(self, path_id):
+        """The path `path_id` in this timeslot is successful."""
+
+        path = self.path[path_id]
+
+        # Distance on the original topology of the two end nodes
+        dist = len(path.swap_nodes)
+
+        # Number of measurements
+        self._stat.add("meas", dist)
+
+        # Measure fidelity
+        qubit_a, = self._network.nodes[path.alice_name].qmemory.peek([path.alice_edge_id])
+        qubit_b, = self._network.nodes[path.bob_name].qmemory.peek([path.bob_edge_id])
+        fidelity = ns.qubits.fidelity([qubit_a, qubit_b], ks.b00, squared=True)
+        self._stat.add(f"fidelity-{dist}", fidelity)
+
+        # Record delay as the time between when the e2e pair was requested
+        # and when all its qubits have been established an end-to-end entanglement.
+        if path.pair_id in self._pending_pairs:
+            pair = self._pending_pairs[path.pair_id]
+            if pair[0][2] == 0:           
+                delay = ns.sim_time() - pair[1]
+                self._stat.add('delay', delay * 1e-6)  # convert ns to ms
+                del self._pending_pairs[path.pair_id]
+
+        # Record latency as the time between when the entanglement was ready
+        # at each node and the time when all the corrections have been applied
+        # to one of the end nodes.
+        latency = ns.sim_time() - path.timestamp
+        self._stat.add(f"latency-{dist}", latency * 1e-6) # convert ns to ms
+
+        # Record the physical distance, in the shorted path, of e2e entanglement.
+        path_length = self._topology.distance_path(
+            self._topology.get_id_by_name(path.bob_name),
+            self._topology.get_id_by_name(path.alice_name),
+            path.swap_nodes)
+        self._stat.add("length", path_length)
+
+        # Counter of successful e2e entanglements.
+        fid_thresholds = [0, 0.6, 0.7, 0.8, 0.9]
+        for fid in fid_thresholds:
+            if fidelity > fid:
+                self._stat.count(f"success-{fid:.1f}", 1)
+
+        logging.debug((f"{ns.sim_time():.1f}: "
+                       f"timeslot #{self.timeslot}, e2e entanglement path {path_id} "
+                       f"{path}, distance {dist}: "
+                       f"fidelity {fidelity:.3f}, latency {latency:.3f}"))
+        
+        # Remove the path once it is found to be successful
+        del self.path[path_id]
+
     def _routing(self):
         """Perform routing based on the info received by the nodes."""
 
@@ -398,81 +473,6 @@ class Oracle(Protocol):
 
         raise NotImplementedError(
             f'Unknown path selection algorithm: {self._algorithm}')
-
-    def channel_id(self, src, dst):
-        """Return the channel identifier where to send a message.
-
-        Parameters
-        ----------
-        src : str
-            Name of the current node that will send the message.
-        dst : str
-            Name of the destination node.
-        
-        Returns
-        -------
-        int
-            The identifier of the channel where to send the message.
-        
-        """
-
-        src_id = self._topology.get_id_by_name(src)
-        dst_id = self._topology.get_id_by_name(dst)
-        nxt_id = self._topology.next_hop(src_id, dst_id)
-        return self._topology.incoming_id(src_id, nxt_id)
-        
-    def success(self, path_id):
-        """The path `path_id` in this timeslot is successful."""
-
-        path = self.path[path_id]
-
-        # Distance on the original topology of the two end nodes
-        dist = len(path.swap_nodes)
-
-        # Number of measurements
-        self._stat.add("meas", dist)
-
-        # Measure fidelity
-        qubit_a, = self._network.nodes[path.alice_name].qmemory.peek([path.alice_edge_id])
-        qubit_b, = self._network.nodes[path.bob_name].qmemory.peek([path.bob_edge_id])
-        fidelity = ns.qubits.fidelity([qubit_a, qubit_b], ks.b00, squared=True)
-        self._stat.add(f"fidelity-{dist}", fidelity)
-
-        # Record delay as the time between when the e2e pair was requested
-        # and when all its qubits have been established an end-to-end entanglement.
-        if path.pair_id in self._pending_pairs:
-            pair = self._pending_pairs[path.pair_id]
-            if pair[0][2] == 0:           
-                delay = ns.sim_time() - pair[1]
-                self._stat.add('delay', delay * 1e-6)  # convert ns to ms
-                del self._pending_pairs[path.pair_id]
-
-        # Record latency as the time between when the entanglement was ready
-        # at each node and the time when all the corrections have been applied
-        # to one of the end nodes.
-        latency = ns.sim_time() - path.timestamp
-        self._stat.add(f"latency-{dist}", latency * 1e-6) # convert ns to ms
-
-        # Record the physical distance, in the shorted path, of e2e entanglement.
-        path_length = self._topology.distance_path(
-            self._topology.get_id_by_name(path.bob_name),
-            self._topology.get_id_by_name(path.alice_name),
-            path.swap_nodes)
-        self._stat.add("length", path_length)
-
-        # Counter of successful e2e entanglements.
-        fid_thresholds = [0, 0.6, 0.7, 0.8, 0.9]
-        for fid in fid_thresholds:
-            if fidelity > fid:
-                self._stat.count(f"success-{fid:.1f}", 1)
-
-        logging.debug((f"{ns.sim_time():.1f}: "
-                       f"timeslot #{self.timeslot}, e2e entanglement path {path_id} "
-                       f"{path}, distance {dist}: "
-                       f"fidelity {fidelity:.3f}, latency {latency:.3f}"))
-        
-        # Remove the path once it is found to be successful
-        del self.path[path_id]
 
     def _initialize_min_max_dist(self):
         diameter = Topology("edges", edges=self._topology.edges()).diameter()
