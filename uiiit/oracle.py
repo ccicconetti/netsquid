@@ -223,13 +223,11 @@ class Oracle(Protocol):
         self.path.clear()
         self._remove_old_pairs()
 
+        # Add new pairs generated from the Application
+        self._add_new_pairs()
+
         # Seek end-to-end entanglement paths with the current edges
         # The end-to-end pairs from the applications are served round-robin
-        now = ns.sim_time()
-        new_e2e_pairs = self._app.get_pairs(self.timeslot)
-        for pair in new_e2e_pairs:
-            self._pending_pairs[self._next_pair_id] = (pair, now)
-            self._next_pair_id += 1
         e2e_pairs = sorted(self._pending_pairs.keys())
         path_id = 0
         cur_pair_ndx = len(e2e_pairs) # Beyond last element
@@ -293,6 +291,15 @@ class Oracle(Protocol):
         for cur_pair_id in to_remove:
             self._stat.count("failure", 1)
             del self._pending_pairs[cur_pair_id]
+            
+    def _add_new_pairs(self):
+        """Add new pairs generated from the Application."""
+
+        now = ns.sim_time()
+        new_e2e_pairs = self._app.get_pairs(self.timeslot)
+        for pair in new_e2e_pairs:
+            self._pending_pairs[self._next_pair_id] = (pair, now)
+            self._next_pair_id += 1
 
     def _add_path(self, alice_name, bob_name, path_id, cur_pair_id):
         """Try to find a new end-to-end entanglement path.
