@@ -122,6 +122,13 @@ class Stat:
             return sum(self._points[metric]) / len(self._points[metric])
         raise KeyError(f'Unknown metric {metric}')
 
+    def get_avg_ci(self, metric):
+        if metric in self._points:
+            stat = sms.DescrStatsW(self._points[metric])
+            ci = stat.tconfint_mean(alpha=0.05)
+            return ((ci[1] + ci[0]) / 2, ci[1] - ci[0])
+        return (self.get_avg(metric), 0)
+
     def get_all(self, metric):
         if metric in self._counts:
             return self._counts[metric][0]
@@ -521,13 +528,67 @@ class MultiStat:
             If the path exists but it is not a directory
         """
 
+        self._create_dir(path)
+        for stat in self._stats.values():
+            stat.export(path, self._variable_params())
+
+    def print(self):
+        """Print all the `Stat` objects in a human-readable manner."""
+
+        for stat in self._stats.values():
+            print(f'** {stat}')
+            stat.print()
+
+    def single_factor_export(self, factor, path):
+        """Export all the average and confidence intervals of a factor.
+
+        Parameters
+        ----------
+        path : str
+            The directory that will store the files. If it does not exist,
+            it will be created. If it exists but it is not a directory, an
+            exception will be raised.
+
+        Raises
+        ------
+        FileExistsError
+            If the path exists but it is not a directory
+        """
+
+        self._create_dir(path)
+        data = self.single_factor_data(factor)
+        for metric, per_metric in data.items():
+            for mangle, per_mangle in per_metric.items():
+                with open(path + f'/{mangle}.{metric}.dat', 'w') as outfile:
+                    for factor_value in sorted(per_mangle.keys()):
+                        (avg, ci) = per_mangle[factor_value]
+                        outfile.write(f'{factor_value} {avg} {ci}\n')
+
+    def single_factor_data(self, factor):
+        variable_params = set(self._variable_params()).remove(factor)
+        data = dict()
+        for stat in self._stats.values():
+            factor_value = stat.conf()[factor]
+            mangle = stat.conf().compact(variable_params)
+            for metric in list(stat.count_metrics()) + list(stat.point_metrics()):
+                if metric not in data:
+                    data[metric] = dict()
+                if mangle not in data[metric]:
+                    data[metric][mangle] = dict()
+                data[metric][mangle][factor_value] = stat.get_avg_ci(metric)
+        return data
+
+    @staticmethod
+    def _create_dir(path):
         if os.path.exists(path):
             if not os.path.isdir(path):
                 raise FileExistsError(f'Path {path} exists but it is not a directory')
         else:
             os.mkdir(path)
 
-        # Find all parameters that have the same value across all the stats
+    def _variable_params(self):
+        """Return all parameters that have the same value across all the stats."""
+
         all_params = dict()
         for stat in self._stats.values():
             for k, v in stat.conf().all_params().items():
@@ -538,17 +599,7 @@ class MultiStat:
         for param, values in all_params.items():
             if len(values) > 1:
                 variable_params.append(param)
-
-        # Export the statistics
-        for stat in self._stats.values():
-            stat.export(path, variable_params)
-
-    def print(self):
-        """Print all the `Stat` objects in a human-readable manner."""
-
-        for stat in self._stats.values():
-            print(f'** {stat}')
-            stat.print()
+        return variable_params
 
 def plot_all(x_values, xlabel, stats, metrics, block=False):
     if len(x_values) != len(stats):

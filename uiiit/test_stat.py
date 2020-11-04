@@ -5,8 +5,10 @@ __license__ = "MIT"
 import os
 import unittest
 import shutil
+import time
 from io import StringIO
 from simstat import Conf, Stat, MultiStat
+from utils import TestDirectory
 
 def make_simple_stat(**kwargs):
     stat = Stat(Conf(par1=42, par2="hello"))
@@ -92,6 +94,7 @@ class TestStat(unittest.TestCase):
         self.assertEqual(5, stat.get_all("m1"))
         self.assertEqual(4, stat.get_count("m1"))
         self.assertEqual(5/4, stat.get_avg("m1"))
+        self.assertEqual((5/4, 0), stat.get_avg_ci("m1"))
 
         with self.assertRaises(KeyError):
             stat.get_sum("m2")
@@ -109,8 +112,13 @@ class TestStat(unittest.TestCase):
         self.assertEqual(2, stat.get_sum("m1"))
         self.assertEqual(4, stat.get_count("m1"))
         self.assertEqual(0.5, stat.get_avg("m1"))
-
+        self.assertEqual(0.5, stat.get_avg_ci("m1")[0])
+        self.assertAlmostEqual(4.68443412, stat.get_avg_ci("m1")[1])
         self.assertEqual(values, stat.get_all("m1"))
+
+        for _ in range(1000):
+            stat.add("m1", 0.5)
+        self.assertAlmostEqual(0.009971071490, stat.get_avg_ci("m1")[1])
 
         with self.assertRaises(KeyError):
             stat.get_all("m2")
@@ -416,6 +424,41 @@ class TestMultiStat(unittest.TestCase):
         self.assertAlmostEqual(avg * 2.0, mstat[conf1].get_avg("mp"))
         self.assertAlmostEqual(avg * 2.0, mstat[conf2].get_avg("mp"))
 
+    def test_single_factor_data(self):
+        mstat = MultiStat([
+            make_simple_stat(par1=10),
+            make_simple_stat(par1=20),
+            make_simple_stat(par1=30),
+        ])
+
+        data = mstat.single_factor_data("par1")
+        self.assertEqual({'mc', 'mp'}, data.keys())
+        self.assertEqual({
+            'par1=10.par2=hello',
+            'par1=20.par2=hello',
+            'par1=30.par2=hello'}, data['mc'].keys())
+        self.assertEqual({
+            'par1=10.par2=hello',
+            'par1=20.par2=hello',
+            'par1=30.par2=hello'}, data['mp'].keys())
+        self.assertEqual(3, len(data['mc'].values()))
+        self.assertEqual(3, len(data['mp'].values()))
+
+    def test_single_factor_export(self):
+        mstat = MultiStat([
+            make_simple_stat(par1=10),
+            make_simple_stat(par1=20),
+            make_simple_stat(par1=30),
+        ])
+
+        with TestDirectory():
+            mstat.single_factor_export('par1', 'test_directory')
+            for par in range(10, 31, 10):
+                self.assertTrue(os.path.isfile(
+                    f'test_directory/par1={par}.par2=hello.mc.dat'))
+                self.assertTrue(os.path.isfile(
+                    f'test_directory/par1={par}.par2=hello.mp.dat'))
+
     @unittest.skip
     def test_save_to_json(self):
         mstat = MultiStat([
@@ -423,7 +466,6 @@ class TestMultiStat(unittest.TestCase):
             make_simple_stat(new_param=42),
             ])
         with open('mstat.json', 'w') as outfile:
-
             mstat.json_dump(outfile)
 
     @unittest.skip
