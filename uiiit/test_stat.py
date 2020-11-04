@@ -4,8 +4,6 @@ __license__ = "MIT"
 
 import os
 import unittest
-import shutil
-import time
 from io import StringIO
 from simstat import Conf, Stat, MultiStat
 from utils import TestDirectory
@@ -94,7 +92,7 @@ class TestStat(unittest.TestCase):
         self.assertEqual(5, stat.get_all("m1"))
         self.assertEqual(4, stat.get_count("m1"))
         self.assertEqual(5/4, stat.get_avg("m1"))
-        self.assertEqual((5/4, 0), stat.get_avg_ci("m1"))
+        self.assertEqual((5, 0), stat.get_avg_ci("m1"))
 
         with self.assertRaises(KeyError):
             stat.get_sum("m2")
@@ -122,6 +120,14 @@ class TestStat(unittest.TestCase):
 
         with self.assertRaises(KeyError):
             stat.get_all("m2")
+
+        stat.add('m3', 1)
+        self.assertEqual((1, 0), stat.get_avg_ci('m3'))
+        stat.add('m3', 1.1)
+        self.assertEqual((1.05, 0), stat.get_avg_ci('m3'))
+        stat.add('m3', 1.2)
+        self.assertAlmostEqual(1.1, stat.get_avg_ci("m3")[0])
+        self.assertAlmostEqual(0.4968275423687504, stat.get_avg_ci("m3")[1])
 
     def test_return_metrics(self):
         stat = Stat()
@@ -236,14 +242,12 @@ class TestStat(unittest.TestCase):
 
     def test_export(self):
         path = 'test_directory'
-        if os.path.exists(path):
-            shutil.rmtree(path)
-        os.mkdir(path)
-        stat = make_simple_stat()
-        stat.export(path)
+        with TestDirectory():
+            stat = make_simple_stat()
+            stat.export(path)
 
-        self.assertTrue(os.path.exists(f'{path}/par1=42.par2=hello.mc.dat'))
-        self.assertTrue(os.path.exists(f'{path}/par1=42.par2=hello.mp.dat'))
+            self.assertTrue(os.path.exists(f'{path}/par1=42.par2=hello.mc.dat'))
+            self.assertTrue(os.path.exists(f'{path}/par1=42.par2=hello.mp.dat'))
 
     @unittest.skip
     def test_print(self):
@@ -342,43 +346,39 @@ class TestMultiStat(unittest.TestCase):
 
     def test_json_file(self):
         path = 'test_directory'
-        if os.path.exists(path):
-            shutil.rmtree(path)
-        os.mkdir('test_directory')
+        with TestDirectory():
+            # create a collection
+            mstat = MultiStat()
+            self.assertFalse(mstat)
+            mstat.add(make_simple_stat())
+            self.assertTrue(mstat)
+            mstat.add(make_simple_stat(new_param=42))
 
-        # create a collection
-        mstat = MultiStat()
-        self.assertFalse(mstat)
-        mstat.add(make_simple_stat())
-        self.assertTrue(mstat)
-        mstat.add(make_simple_stat(new_param=42))
+            # serialize to file
+            mstat.json_dump_to_file(f'{path}/mstat.json')
 
-        # serialize to file
-        mstat.json_dump_to_file(f'{path}/mstat.json')
+            # deserialize from file
+            mstat_new = MultiStat.json_load_from_file(f'{path}/mstat.json')
 
-        # deserialize from file
-        mstat_new = MultiStat.json_load_from_file(f'{path}/mstat.json')
-
-        self.assertEqual(len(mstat), len(mstat_new))
+            self.assertEqual(len(mstat), len(mstat_new))
 
     def test_json_file_empty(self):
         mstat = MultiStat.json_load_from_file(f'doesnotexist.json')
         self.assertFalse(mstat)
 
     def test_export(self):
-        path = 'test_directory'
-        if os.path.exists(path):
-            shutil.rmtree(path)
-
         mstat = MultiStat()
         mstat.add(make_simple_stat())
         mstat.add(make_simple_stat(new_param=42))
-        mstat.export(path)
+        path = 'test_directory'
 
-        self.assertTrue(os.path.exists(f'{path}/new_param=42.par1=42.par2=hello.mc.dat'))
-        self.assertTrue(os.path.exists(f'{path}/new_param=42.par1=42.par2=hello.mp.dat'))
-        self.assertTrue(os.path.exists(f'{path}/par1=42.par2=hello.mc.dat'))
-        self.assertTrue(os.path.exists(f'{path}/par1=42.par2=hello.mp.dat'))
+        with TestDirectory():
+            mstat.export(path)
+
+            self.assertTrue(os.path.exists(f'{path}/new_param=42.mc.dat'))
+            self.assertTrue(os.path.exists(f'{path}/new_param=42.mp.dat'))
+            self.assertTrue(os.path.exists(f'{path}/mc.dat'))
+            self.assertTrue(os.path.exists(f'{path}/mp.dat'))
 
     def test_filter(self):
         mstat = MultiStat([
@@ -426,23 +426,22 @@ class TestMultiStat(unittest.TestCase):
 
     def test_single_factor_data(self):
         mstat = MultiStat([
-            make_simple_stat(par1=10),
-            make_simple_stat(par1=20),
-            make_simple_stat(par1=30),
+            make_simple_stat(par1=10,algo='short'),
+            make_simple_stat(par1=20,algo='short'),
+            make_simple_stat(par1=30,algo='short'),
+            make_simple_stat(par1=10,algo='long'),
+            make_simple_stat(par1=20,algo='long'),
+            make_simple_stat(par1=30,algo='long'),
         ])
 
         data = mstat.single_factor_data("par1")
         self.assertEqual({'mc', 'mp'}, data.keys())
-        self.assertEqual({
-            'par1=10.par2=hello',
-            'par1=20.par2=hello',
-            'par1=30.par2=hello'}, data['mc'].keys())
-        self.assertEqual({
-            'par1=10.par2=hello',
-            'par1=20.par2=hello',
-            'par1=30.par2=hello'}, data['mp'].keys())
-        self.assertEqual(3, len(data['mc'].values()))
-        self.assertEqual(3, len(data['mp'].values()))
+        self.assertEqual({'algo=short', 'algo=long'}, data['mc'].keys())
+        self.assertEqual({'algo=short', 'algo=long'}, data['mp'].keys())
+        self.assertEqual(3, len(data['mc']['algo=short'].values()))
+        self.assertEqual(3, len(data['mp']['algo=short'].values()))
+        self.assertEqual(3, len(data['mc']['algo=long'].values()))
+        self.assertEqual(3, len(data['mp']['algo=long'].values()))
 
     def test_single_factor_export(self):
         mstat = MultiStat([
@@ -453,11 +452,8 @@ class TestMultiStat(unittest.TestCase):
 
         with TestDirectory():
             mstat.single_factor_export('par1', 'test_directory')
-            for par in range(10, 31, 10):
-                self.assertTrue(os.path.isfile(
-                    f'test_directory/par1={par}.par2=hello.mc.dat'))
-                self.assertTrue(os.path.isfile(
-                    f'test_directory/par1={par}.par2=hello.mp.dat'))
+            self.assertTrue(os.path.isfile(f'test_directory/mc.dat'))
+            self.assertTrue(os.path.isfile(f'test_directory/mp.dat'))
 
     @unittest.skip
     def test_save_to_json(self):

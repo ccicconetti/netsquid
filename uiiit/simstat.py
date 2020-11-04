@@ -23,6 +23,9 @@ class Conf:
     def __getitem__(self, key):
         return self._params[key]
 
+    def __contains__(self, key):
+        return key in self._params.keys()
+
     def change_param(self, key, value):
         self._params[key] = value
     
@@ -43,8 +46,8 @@ class Conf:
                 return False
         return True
 
-    def compact(self, keys=[]):
-        return '.'.join([f'{k}={v}' for k, v in sorted(self._params.items()) if not keys or k in keys])
+    def compact(self, keys=None):
+        return '.'.join([f'{k}={v}' for k, v in sorted(self._params.items()) if keys is None or k in keys])
 
     def __repr__(self):
         return ', '.join([f'{k}: {v}' for k, v in sorted(self._params.items())])
@@ -124,10 +127,12 @@ class Stat:
 
     def get_avg_ci(self, metric):
         if metric in self._points:
+            if len(self._points[metric]) <= 2:
+                return (self.get_avg(metric), 0)
             stat = sms.DescrStatsW(self._points[metric])
             ci = stat.tconfint_mean(alpha=0.05)
             return ((ci[1] + ci[0]) / 2, ci[1] - ci[0])
-        return (self.get_avg(metric), 0)
+        return (self.get_sum(metric), 0)
 
     def get_all(self, metric):
         if metric in self._counts:
@@ -200,7 +205,7 @@ class Stat:
         ret._counts = counts
         return ret
 
-    def export(self, path, parameters=[]):
+    def export(self, path, parameters=None):
         """Export the content to a set of files in the given path.
         
         Parameters
@@ -214,13 +219,15 @@ class Stat:
         """
 
         base_name = self._conf.compact(parameters)
+        if base_name:
+            base_name += '.'
 
         for metric_name, record in self._counts.items():
-            with open(f'{path}/{base_name}.{metric_name}.dat', 'w') as outfile:
+            with open(f'{path}/{base_name}{metric_name}.dat', 'w') as outfile:
                 outfile.write(f'{record[0]} {record[1]}\n')
 
         for metric_name, values in self._points.items():
-            with open(f'{path}/{base_name}.{metric_name}.dat', 'w') as outfile:
+            with open(f'{path}/{base_name}{metric_name}.dat', 'w') as outfile:
                 for value in values:
                     outfile.write(f'{value}\n')
 
@@ -559,13 +566,20 @@ class MultiStat:
         data = self.single_factor_data(factor)
         for metric, per_metric in data.items():
             for mangle, per_mangle in per_metric.items():
-                with open(path + f'/{mangle}.{metric}.dat', 'w') as outfile:
+                if not mangle:
+                    basename = ''
+                else:
+                    basename = f'{mangle}.'
+                with open(path + f'/{basename}{metric}.dat', 'w') as outfile:
                     for factor_value in sorted(per_mangle.keys()):
                         (avg, ci) = per_mangle[factor_value]
                         outfile.write(f'{factor_value} {avg} {ci}\n')
 
     def single_factor_data(self, factor):
-        variable_params = set(self._variable_params()).remove(factor)
+        variable_params = set(self._variable_params())
+        variable_params.remove(factor)
+        if variable_params is None:
+            variable_params = set()
         data = dict()
         for stat in self._stats.values():
             factor_value = stat.conf()[factor]
@@ -595,6 +609,10 @@ class MultiStat:
                 if k not in all_params:
                     all_params[k] = set()
                 all_params[k].add(v)
+        for stat in self._stats.values():
+            for param in all_params.keys():
+                if param not in stat.conf():
+                    all_params[param].add(None)
         variable_params = []
         for param, values in all_params.items():
             if len(values) > 1:
