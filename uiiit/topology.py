@@ -2,6 +2,7 @@
 """
 
 import math
+import operator
 import subprocess
 import random
 
@@ -486,16 +487,22 @@ class Topology:
 
         return self._graph[node]
 
-    def spt(self, dst, opposite_weight=False):
+    def spt(self, dst, opposite_weight=False,
+            weights=None, combine_op=operator.add):
         """Compute the shortest-path tree to `dst`.
 
         Parameters
         ----------
         dst : int
             The identifier of the node for which to compute the SPT.
-        opposite_weight : bool
+        opposite_weight : bool, optional
             Take the opposite of the weights.
-        
+        weights : sparse matrix, optional
+            `weights[src][dst]` is the cost to reach src from dst.
+            If None then the internal weights are used.
+        combine_op : operator, optional
+            Operator to combine the overall cost along a path.
+
         Returns
         -------
         The previous hop and distances of all nodes to reach `src`. This is
@@ -532,10 +539,13 @@ class Topology:
                 if v not in self._graph[u]:
                     continue
                 # v is in Q and a neighbor of u
-                alt_dist_u_v = self.weight(v, u)
+                if weights is None:
+                    alt_dist_u_v = self.weight(v, u)
+                else:
+                    alt_dist_u_v = weights[u][v]
                 if opposite_weight:
                     alt_dist_u_v *= -1.0
-                alt = dist[u] + alt_dist_u_v
+                alt = combine_op(dist[u], alt_dist_u_v)
                 if alt < dist[v]:
                     dist[v] = alt
                     prev[v] = u

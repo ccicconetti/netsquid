@@ -658,6 +658,40 @@ Edges: (5):
         self.assertEqual(10, net.longest_path())
         self.assertEqual(4.5, net.distance(0, 3))
 
+    def test_spt_external_weights(self):
+        net = Topology('edges', edges=[
+            [1, 0], [2, 1], [3, 2], [4, 3], [4, 5], [5, 0]
+        ])
+        (prev, dist) = net.spt(4)
+        self.assertEqual(2, dist[0])
+        self.assertEqual(5, prev[0])
+
+        weights = {
+            1: { 0: 1 },
+            2: { 1: 1 },
+            3: { 2: 1 },
+            4: { 3: 1, 5: 1},
+            5: { 0: 1}
+        }
+        (prev, dist) = net.spt(4, weights=weights)
+        self.assertEqual(2, dist[0])
+        self.assertEqual(5, prev[0])
+
+        weights[1][0] = 5
+        weights[5][0] = 10
+        (prev, dist) = net.spt(4, weights=weights)
+        self.assertEqual(8, dist[0])
+        self.assertEqual(1, prev[0])
+
+        (prev, dist) = net.spt(4, weights=weights, combine_op=max)
+        self.assertEqual(5, dist[0])
+        self.assertEqual(1, prev[0])
+
+        weights[1][0] = 20
+        (prev, dist) = net.spt(4, weights=weights, combine_op=max)
+        self.assertEqual(10, dist[0])
+        self.assertEqual(5, prev[0])
+
     def test_distance(self):
         net = Topology('grid', size=2, default_weight=2)
 
