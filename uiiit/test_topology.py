@@ -692,6 +692,32 @@ Edges: (5):
         self.assertEqual(10, dist[0])
         self.assertEqual(5, prev[0])
 
+    def test_minmax(self):
+        net = Topology('edges', edges=[
+            [1, 0], [2, 1], [3, 2], [4, 3], [5, 4], [5, 6], [6, 0]
+        ])
+        other = Topology('edges', edges=net.edges() + [[5, 1], [5, 2], [5, 3]])
+
+        self.assertEqual([6], net.minmax(5, 0, other))
+
+        other.change_weight(1, 5, 0.9)
+        self.assertEqual([6], net.minmax(5, 0, other))
+
+        other.change_weight(2, 5, 0.9)
+        self.assertEqual([6], net.minmax(5, 0, other))
+
+        other.change_weight(3, 5, 0.9)
+        self.assertEqual([1, 2, 3, 4], net.minmax(5, 0, other))
+
+        other.change_weight(1, 5, 1.1)
+        self.assertEqual([6], net.minmax(5, 0, other))
+
+        other.change_weight(0, 6, 10)
+        self.assertEqual([6], net.minmax(5, 0, other))
+
+        other.change_weight(6, 5, 1.2)
+        self.assertEqual([1, 2, 3, 4], net.minmax(5, 0, other))
+
     def test_distance(self):
         net = Topology('grid', size=2, default_weight=2)
 

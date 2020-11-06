@@ -552,6 +552,73 @@ class Topology:
 
         return (prev, dist)
 
+
+    def minmax(self, dst, src, other, omega=1000):
+        """Compute the shortest path to `dst` from `src`.
+
+        The costs are combined with a max operator and are always
+        computed as the distance in the `other` topology to `dst`.
+
+        Parameters
+        ----------
+        dst : int
+            The identifier of the destination node.
+        src : int
+            The identifier of the source node.
+        other : `Topology`
+            Another topology to use to measure distances.
+        omega : float
+            Multiplicative factor to apply to the distances of nodes to `dst`
+            in the `other` topology. Must be such that the difference
+            between the two closest distances to `dst` in the `other` topology
+            multiplied by `omega` is greater than the maximum difference
+            of distances in this topology.
+
+        Returns
+        -------
+        list
+            The list of intermediate hops to traverse, i.e., the full path
+            is `src` -> ret[0] -> ... -> ret[-1] -> `dst`.
+        """
+
+        Q = []
+        dist = {}
+        prev = {}
+        for v in self._graph.keys():
+            Q.append(v)
+            dist[v] = float('inf')
+            prev[v] = None
+
+        if dst not in dist:
+            raise KeyError(f'{dst} is not in {Q}')
+
+        dist[dst] = 0
+
+        while Q:
+            u = None
+            last_value = None
+            for node in Q:
+                value = dist[node]
+                if u is None or value < last_value:
+                    u = node
+                    last_value = value
+            Q.remove(u)
+
+            for v in Q:
+                if v not in self._graph[u]:
+                    continue
+                if v == src:
+                    prev[v] = u
+                    Q.clear()
+                    break
+                # v is in Q and a neighbor of u
+                alt = omega * other.distance(v, dst) + self.distance(v, dst)
+                if alt < dist[v]:
+                    dist[v] = alt
+                    prev[v] = u
+
+        return self.traversing(prev, src, dst)
+
     def all_paths(self, src, dst, max_hops=0):
         """Compute all paths to reach `dst` from `src` in the graph.
 
