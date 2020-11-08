@@ -132,7 +132,7 @@ class Stat:
             stat = sms.DescrStatsW(self._points[metric])
             ci = stat.tconfint_mean(alpha=0.05)
             return ((ci[1] + ci[0]) / 2, ci[1] - ci[0])
-        return (self.get_sum(metric), 0)
+        return (self.get_sum(metric), self.get_avg(metric))
 
     def get_all(self, metric):
         if metric in self._counts:
