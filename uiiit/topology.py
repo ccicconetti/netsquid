@@ -578,7 +578,8 @@ class Topology:
         -------
         list
             The list of intermediate hops to traverse, i.e., the full path
-            is `src` -> ret[0] -> ... -> ret[-1] -> `dst`.
+            is `src` -> ret[0] -> ... -> ret[-1] -> `dst`. If there is no
+            such path, return None.
         """
 
         Q = []
@@ -617,7 +618,10 @@ class Topology:
                     dist[v] = alt
                     prev[v] = u
 
-        return self.traversing(prev, src, dst)
+        try:
+            return self.traversing(prev, src, dst)
+        except KeyError:
+            return None
 
     def all_paths(self, src, dst, max_hops=0):
         """Compute all paths to reach `dst` from `src` in the graph.

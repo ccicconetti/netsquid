@@ -718,6 +718,11 @@ Edges: (5):
         other.change_weight(6, 5, 1.2)
         self.assertEqual([1, 2, 3, 4], net.minmax(5, 0, other))
 
+        self.assertEqual(None, net.minmax(0, 5, other))
+        self.assertEqual(None, net.minmax(0, 100, other))
+        with self.assertRaises(KeyError):
+            net.minmax(100, 5, other)
+
     def test_distance(self):
         net = Topology('grid', size=2, default_weight=2)
 
