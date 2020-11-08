@@ -9,16 +9,12 @@ from netsquid.qubits import ketstates as ks
 from netsquid.protocols import Protocol, Signals
 
 from uiiit.topology import Topology, EmptyTopology
-from uiiit.utils import Chronometer
 
 __all__ = [
     "Oracle"
     ]
 
 class Oracle(Protocol):
-    _minmax_dist_max_paths   = 2**24
-    _minmax_dist_diam_factor = 10
-
     class Path:
         def __init__(self, alice_name, bob_name,
                      alice_edge_id, bob_edge_id,
@@ -56,10 +52,19 @@ class Oracle(Protocol):
 
     Parameters
     ----------
-    algorithm : { 'spf-hops', 'spf-dist', 'minmax-dist' }
-        The algorithm to use for path selection.
+    algorithm : { 'spf', 'minmax' }
+        The algorithm to use for path selection (shortest path or minmax cost).
+    metric : { 'hops', 'dist' }
+        The metric to use for path selection (number of hops or distance).
+        Unused with `algorithm` equal to `minmax`.
     skip_policy : { 'none', 'always-skip', 'random-skip' }
-        The policy to use when choosing whether to skip a given e2e path.
+        The policy to use when choosing whether to skip a given end-to-end
+        entanglement path: `none` means that paths are always served in a
+        FIFO order; `always-skip` means that any path that is longer than
+        the average path length is only served if there are no other paths
+        shorter than the average path length; `random-skip` is similar but
+        the path is put aside with a given probability that increases
+        with the path length.
     network : `netsquid.nodes.network.Network`
         The network of nodes.
     topology : `uiiit.topology.Topology`
@@ -95,20 +100,22 @@ class Oracle(Protocol):
         This structure is overwritten at every new timeslot.
 
     """
-    def __init__(self, algorithm, skip_policy,
+    def __init__(self, algorithm, metric, skip_policy,
                  network, topology, app, stat, max_delay):
         super().__init__(name="Oracle")
 
-        assert algorithm in { 'spf-hops', 'spf-dist', 'minmax-dist' }
+        assert algorithm   in { 'spf', 'minmax' }
+        assert metric      in { 'hops', 'dist' }
         assert skip_policy in { 'none', 'always-skip', 'random-skip' }
 
-        self._algorithm     = algorithm
-        self._skip_policy   = skip_policy
-        self._topology      = topology
-        self._topology_hops = Topology('edges', edges=topology.edges())
-        self._network       = network
-        self._app           = app
-        self._stat          = stat
+        self._algorithm   = algorithm
+        self._metric      = metric
+        self._skip_policy = skip_policy
+        self._topology    = topology
+        self._logical_topology = Topology('edges', edges=topology.edges())
+        self._network     = network
+        self._app         = app
+        self._stat        = stat
         self._max_delay   = max_delay
 
         self._edges         = []
@@ -120,18 +127,13 @@ class Oracle(Protocol):
         self.mem_pos  = dict()
         self.path     = dict()
 
-        # Data structures for algorithm == minmax-dist only.
-        self._all_paths    = None
-        self._longest_path = None
-        if algorithm == 'minmax-dist':
-            with Chronometer():
-                self._initialize_min_max_dist()
-
         # Data structures for skip policies.
         self._num_swaps_avg = 0
         self._num_swaps_cnt = 0
 
         logging.debug((f"Create Oracle for network {network.name}, "
+                       f"algorithm {algorithm}, metric {metric}, "
+                       f"skip policy {skip_policy}, max delay {max_delay}, "
                        f"app {app.name}, nodes: {topology.node_names}"))
 
     def link_good(self, node_name, positions):
@@ -220,11 +222,16 @@ class Oracle(Protocol):
         self._stat.add(f"latency-{dist}", latency * 1e-6) # convert ns to ms
 
         # Record the physical distance, in the shortest path, of e2e entanglement.
-        path_length = self._topology.distance_path(
-            self._topology.get_id_by_name(path.bob_name),
-            self._topology.get_id_by_name(path.alice_name),
-            path.swap_nodes)
-        self._stat.add("length", path_length)
+        bob_id = self._topology.get_id_by_name(path.bob_name)
+        alice_id = self._topology.get_id_by_name(path.alice_name)
+        self._stat.add("length",
+                       self._topology.distance_path(
+                           bob_id, alice_id, path.swap_nodes))
+
+        # Mark the success/failure for a given path length in the full graph,
+        # in number of hops.
+        len_hops = self._logical_topology.distance(bob_id, alice_id)
+        self._stat.count(f"lenrate-{len_hops}", 1)
 
         # Counter of successful e2e entanglements.
         fid_thresholds = [0, 0.6, 0.7, 0.8, 0.9]
@@ -364,7 +371,12 @@ class Oracle(Protocol):
             logging.debug((f"{ns.sim_time():.1f}: dropping the following "
                            f"e2e pairs: {to_remove}"))
         for cur_pair_id in to_remove:
+            cur_pair = self._pending_pairs[cur_pair_id]
             self._stat.count("failure", 1)
+            len_hops = self._logical_topology.distance(
+                self._topology.get_id_by_name(cur_pair[0][0]),
+                self._topology.get_id_by_name(cur_pair[0][1]))
+            self._stat.count(f"lenrate-{len_hops}", 0)
             del self._pending_pairs[cur_pair_id]
 
     def _add_new_pairs(self):
@@ -515,83 +527,34 @@ class Oracle(Protocol):
         if graph_bi.isedge(src, dst):
             return []
 
-        if self._algorithm in ['spf-hops', 'spf-dist']:
-            if self._algorithm == 'spf-hops':
+        if self._algorithm == 'spf':
+            # If we count hops rather than distance, then we change all
+            # the weights of the reduced graph so that all hops have the same cost
+            if self._metric == 'hops':
                 graph_bi.change_all_weights(1)
+            else:
+                assert self._metric == 'dist'
+
+            # Find the shortest path tree and return the shortest path
+            # from src to dst, if any, otherwise return None.
             prev, _ = graph_bi.spt(dst)
             
             if prev is None or prev[src] is None:
                 return None
             return Topology.traversing(prev, src, dst)
 
-        elif self._algorithm == 'minmax-dist':
-            assert self._all_paths is not None
-            assert self._longest_path is not None
-
-            curr = None
-            for cand in self._all_paths[src][dst]:
-                # Discard path if it cannot be implemented in the reduced graph.
-                not_usable = False
-                full_path = [src] + cand[0] + [dst]
-                for i in range(len(full_path)-1):
-                    if full_path[i+1] not in nodes or \
-                        graph_bi.isedge(full_path[i], full_path[i+1]) == False:
-                        not_usable = True
-                        break
-                if not_usable:
-                    continue
-                if curr is None:
-                    curr = cand
-                else:
-                    curr_cost = curr[1] * self._longest_path + len(curr[0])
-                    cand_cost = cand[1] * self._longest_path + len(cand[0])
-                    if curr_cost > cand_cost:
-                        curr = cand
-
+        elif self._algorithm == 'minmax':
             # Print where SPF would have picked a shorter path, in num hops
-            # xxxprev, _ = graph_bi.spt(dst)            
-            # if xxxprev is not None and xxxprev[src] is not None:
-            #     xxxcurr = Topology.traversing(xxxprev, src, dst)
-            #     if len(curr[0]) > len(xxxcurr):
-            #         print(f'{src} -> {dst}, mmd {len(curr[0])} vs spf {len(xxxcurr)}, mmd {curr[0]} spf {xxxcurr}')
-            #         for xxxpath in self._all_paths[src][dst]:
-            #             print(f'{xxxpath[0]} cost {xxxpath[1]}')
+            # spfprev, _ = graph_bi.spt(dst)
+            # if spfprev is not None and spfprev[src] is not None:
+            #     spfhops = Topology.traversing(spfprev, src, dst)
+            #     minmaxhops = graph_bi.minmax(dst, src, self._logical_topology, omega=1000)
+            #     if minmaxhops != spfhops:
+            #         logging.info((f'{src} -> {dst}, '
+            #                       f'mm {len(minmaxhops)} vs spf {len(spfhops)}, '
+            #                       f'mm {minmaxhops} spf {spfhops}'))
 
-            return curr[0] if curr is not None else None
+            return graph_bi.minmax(dst, src, self._logical_topology, omega=1000)
 
         raise NotImplementedError(
             f'Unknown path selection algorithm: {self._algorithm}')
-
-    def _initialize_min_max_dist(self):
-        diameter = Topology("edges", edges=self._topology.edges()).diameter()
-        nodes = self._topology.nodes()
-        self._all_paths = dict()
-        self._longest_path = None
-        counter = 0
-        for u in nodes:
-            self._all_paths[u] = dict()
-            for v in nodes:
-                if u == v:
-                    continue
-                self._all_paths[u][v] = []
-                curr = self._all_paths[u][v]
-                for p in self._topology.all_paths(
-                    u, v, self._minmax_dist_diam_factor * diameter):
-                    max_cost = 0
-                    for swap_node in p:
-                        max_cost = max(max_cost,
-                                       self._topology.distance(swap_node, v))
-                    curr.append((p, int(0.5 + max_cost)))
-                    self._longest_path = \
-                        len(p) if self._longest_path is None else \
-                        max(self._longest_path, len(p))
-                    counter += 1
-                    if counter == self._minmax_dist_max_paths:
-                        raise ValueError('Too many paths, bailing out')
-
-        if logging.getLogger().isEnabledFor(logging.DEBUG):
-            for src, destinations in self._all_paths.items():
-                for dst, paths in destinations.items():
-                    logging.debug(f'{src} -> {dst}')
-                    for path, cost in paths:
-                        logging.debug(f'path {path} cost {cost}')
