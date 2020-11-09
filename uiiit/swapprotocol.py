@@ -240,57 +240,55 @@ class SwapProtocol(NodeProtocol):
                 if not port.input_queue:
                     continue
 
-                assert len(port.input_queue) == 1 # not sure this is always true
-                msg = port.rx_input()
-                logging.debug((f"{ns.sim_time():.1f}: {self.node.name} "
-                               f"received message: {msg}"))
+                while True:
+                    msg = port.rx_input()
+                    if msg is None:
+                        break
 
-                #
-                # The message reached its final destination: correct qubit
-                #
+                    logging.debug((f"{ns.sim_time():.1f}: {self.node.name} "
+                                   f"received message: {msg}"))
 
-                # From NetSquid documentation:
-                #
-                # https://docs.netsquid.org/latest-release/api_components/netsquid.components.channel.html
-                #
-                # If multiple items are send onto a channel during
-                # the same time instance, then all items become part
-                # of the same message with the same arrival time.
-                # When getting a message with multiple items, all
-                # items can be retrieved at once, or individual
-                # items can be got by their indices.
-                #
-                # Thus, we might have to unpack the items at pairs.
-                #
-                # NOTE that this way the metadata info has been lost.
-                #
+                    # From NetSquid documentation:
+                    #
+                    # https://docs.netsquid.org/latest-release/api_components/netsquid.components.channel.html
+                    #
+                    # If multiple items are send onto a channel during
+                    # the same time instance, then all items become part
+                    # of the same message with the same arrival time.
+                    # When getting a message with multiple items, all
+                    # items can be retrieved at once, or individual
+                    # items can be got by their indices.
+                    #
+                    # In any case, the metadata originally assigned to the
+                    # individual messages sent are all lost (except one).
+                    #
 
-                for cur_msg in msg.items:
-                    if cur_msg.dst != self.node.name:
-                        # We must forward the message to its next hop
-                        self._forward(cur_msg)
-                        continue
+                    for cur_msg in msg.items:
+                        if cur_msg.dst != self.node.name:
+                            # We must forward the message to its next hop
+                            self._forward(cur_msg)
+                            continue
 
-                    # This node is the final destination of the message, go on
-                    if cur_msg.path_id not in self._rx_messages:
-                        self._rx_messages[cur_msg.path_id] = \
-                            SwapProtocol.PathInfo(self._oracle.timeslot)
+                        # This node is the final destination of the message, go on
+                        if cur_msg.path_id not in self._rx_messages:
+                            self._rx_messages[cur_msg.path_id] = \
+                                SwapProtocol.PathInfo(self._oracle.timeslot)
 
-                    path = self._rx_messages[cur_msg.path_id]
-                    assert self._oracle.timeslot == path.timeslot
-                    assert self._oracle.timeslot == cur_msg.timeslot
+                        path = self._rx_messages[cur_msg.path_id]
+                        assert self._oracle.timeslot == path.timeslot
+                        assert self._oracle.timeslot == cur_msg.timeslot
 
-                    path.incr(cur_msg.m1, cur_msg.m0)
+                        path.incr(cur_msg.m1, cur_msg.m0)
 
-                    if path.counter == len(self._oracle.path[cur_msg.path_id].swap_nodes):
-                        if qprog_exec:
-                            qprog_queue.append(cur_msg.path_id)
-                        else:
-                            if self._correct(cur_msg.path_id):
-                                qprog_exec = True
-                                qprog_path_id = cur_msg.path_id
+                        if path.counter == len(self._oracle.path[cur_msg.path_id].swap_nodes):
+                            if qprog_exec:
+                                qprog_queue.append(cur_msg.path_id)
                             else:
-                                self._notify_oracle(cur_msg.path_id)
+                                if self._correct(cur_msg.path_id):
+                                    qprog_exec = True
+                                    qprog_path_id = cur_msg.path_id
+                                else:
+                                    self._notify_oracle(cur_msg.path_id)
 
     def _notify_oracle(self, path_id):
         logging.debug((f"{ns.sim_time():.1f}: {self.node.name} "
