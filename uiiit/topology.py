@@ -582,44 +582,16 @@ class Topology:
             such path, return None.
         """
 
-        Q = []
-        dist = {}
-        prev = {}
-        for v in self._graph.keys():
-            Q.append(v)
-            dist[v] = float('inf')
-            prev[v] = None
+        topo = Topology('edges', edges=self.edges())
 
-        if dst not in dist:
-            raise KeyError(f'{dst} is not in {Q}')
-
-        dist[dst] = 0
-
-        while Q:
-            u = None
-            last_value = None
-            for node in Q:
-                value = dist[node]
-                if u is None or value < last_value:
-                    u = node
-                    last_value = value
-            Q.remove(u)
-
-            for v in Q:
-                if v not in self._graph[u]:
-                    continue
-                if v == src:
-                    prev[v] = u
-                    Q.clear()
-                    break
-                # v is in Q and a neighbor of u
-                alt = omega * other.distance(v, dst) + self.distance(v, dst)
-                if alt < dist[v]:
-                    dist[v] = alt
-                    prev[v] = u
-
+        for (u, v) in self.edges():
+            topo.change_weight(
+                v, u, 
+                omega * other.distance(u, dst) + self.distance(u, dst)
+            )
+        
         try:
-            return self.traversing(prev, src, dst)
+            return Topology.traversing(topo.spt(dst, combine_op=max)[0], src, dst)
         except KeyError:
             return None
 

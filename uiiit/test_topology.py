@@ -707,6 +707,9 @@ Edges: (5):
         self.assertEqual([6], net.minmax(5, 0, other))
 
         other.change_weight(3, 5, 0.9)
+        self.assertEqual([6], net.minmax(5, 0, other))
+
+        other.change_weight(4, 5, 0.9)
         self.assertEqual([1, 2, 3, 4], net.minmax(5, 0, other))
 
         other.change_weight(1, 5, 1.1)
@@ -722,6 +725,28 @@ Edges: (5):
         self.assertEqual(None, net.minmax(0, 100, other))
         with self.assertRaises(KeyError):
             net.minmax(100, 5, other)
+
+    def test_minmax_ring(self):
+        net = Topology('ring', size=7)
+        other = Topology('edges', edges=net.edges() + \
+            [[5, 1], [1, 5], [5, 2], [2, 5], [5, 3], [3, 5]])
+
+        self.assertEqual([], net.minmax(5, 4, other))
+
+        other.change_weight(4, 5, 100)
+        self.assertEqual([], net.minmax(5, 4, other))
+
+        other.change_all_weights(1)
+        self.assertEqual([4], net.minmax(5, 3, other))
+
+        other.change_weight(4, 3, 1.1)
+        other.change_weight(4, 5, 2.1)
+        self.assertEqual([2, 1, 0, 6], net.minmax(5, 3, other))
+
+        other.change_all_weights(1)
+        net.change_weight(4, 5, 2.1)
+        other.change_weight(4, 5, 2)
+        self.assertEqual([2, 1, 0, 6], net.minmax(5, 3, other))
 
     def test_distance(self):
         net = Topology('grid', size=2, default_weight=2)
