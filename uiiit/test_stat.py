@@ -92,7 +92,7 @@ class TestStat(unittest.TestCase):
         self.assertEqual(5, stat.get_all("m1"))
         self.assertEqual(4, stat.get_count("m1"))
         self.assertEqual(5/4, stat.get_avg("m1"))
-        self.assertEqual((5, 0), stat.get_avg_ci("m1"))
+        self.assertEqual((5, 1.25), stat.get_avg_ci("m1"))
 
         with self.assertRaises(KeyError):
             stat.get_sum("m2")
@@ -454,6 +454,25 @@ class TestMultiStat(unittest.TestCase):
             mstat.single_factor_export('par1', 'test_directory')
             self.assertTrue(os.path.isfile(f'test_directory/mc.dat'))
             self.assertTrue(os.path.isfile(f'test_directory/mp.dat'))
+
+    def test_remove(self):
+        mstat = MultiStat([
+            make_simple_stat(par1=10, newpar='killme'),
+            make_simple_stat(par1=10),
+            make_simple_stat(par1=20),
+            make_simple_stat(par1=30, newpar='killme'),
+        ])
+
+        self.assertEqual(4, len(mstat))
+
+        mstat.remove("wrong_param", ".*")
+        self.assertEqual(4, len(mstat))
+
+        mstat.remove("par1", "1.*")
+        self.assertEqual(2, len(mstat))
+
+        mstat.remove("newpar", "killme")
+        self.assertEqual(1, len(mstat))
 
     @unittest.skip
     def test_save_to_json(self):

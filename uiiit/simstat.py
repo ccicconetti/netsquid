@@ -463,6 +463,26 @@ class MultiStat:
                 stats.append(stat)
         return MultiStat(stats)
 
+    def remove(self, param, regex):
+        """Remove all `Stat` objects whose parameter matches a given value.
+
+        Parameters
+        ----------
+        param : str
+            Name of the parameter to look for.
+        regex : str
+            The regular expression to match the value.
+        
+        """
+
+        to_remove = []
+        for key, stat in self._stats.items():
+            if param in stat.conf() and re.match(regex, str(stat.conf()[param])):
+                to_remove.append(key)
+
+        for key in to_remove:
+            del self._stats[key]
+
     def param_values(self, param):
         """Return all the values for the given parameter.
         
