@@ -22,8 +22,19 @@ import random
 
 import netsquid as ns
 from netsquid.qubits import ketstates as ks
-from netsquid.components import Message, QuantumProcessor, QuantumProgram, PhysicalInstruction, Clock, Component
-from netsquid.components.models.qerrormodels import DepolarNoiseModel, DephaseNoiseModel, QuantumErrorModel
+from netsquid.components import (
+    Message,
+    QuantumProcessor,
+    QuantumProgram,
+    PhysicalInstruction,
+    Clock,
+    Component,
+)
+from netsquid.components.models.qerrormodels import (
+    DepolarNoiseModel,
+    DephaseNoiseModel,
+    QuantumErrorModel,
+)
 from netsquid.components.instructions import INSTR_MEASURE_BELL, INSTR_X, INSTR_Z
 from netsquid.nodes import Node, Network, Connection
 from netsquid.protocols import LocalProtocol, NodeProtocol, Signals, Protocol
@@ -46,7 +57,7 @@ __all__ = [
     "run_simulation",
     "create_plot",
     "MyEntanglingConnection",
-    "Oracle"
+    "Oracle",
 ]
 
 
@@ -61,6 +72,7 @@ class SwapProtocol(NodeProtocol):
         Name of this protocol.
 
     """
+
     _bsm_op_indices = [(0, 0), (0, 1), (1, 0), (1, 1)]
 
     def __init__(self, node, name, oracle, pfail):
@@ -76,8 +88,10 @@ class SwapProtocol(NodeProtocol):
     def run(self):
         while True:
             # Wait for the qubits to arrive
-            yield (self.await_port_input(self._qmem_input_port_l) &
-                   self.await_port_input(self._qmem_input_port_r))
+            yield (
+                self.await_port_input(self._qmem_input_port_l)
+                & self.await_port_input(self._qmem_input_port_r)
+            )
 
             logging.debug(f"{ns.sim_time():.1f}: {self.node.name} all qubits received")
             # Randomly drop incoming qubits and notify the oracle about this
@@ -85,7 +99,7 @@ class SwapProtocol(NodeProtocol):
             for port in ["qin0", "qin1"]:
                 link_states[port] = random.random() >= self.pfail
             self.oracle.add_link_states(self.node, link_states)
-            
+
             # Wait for the oracle to take its decisions
             yield self.await_signal(self.oracle, Signals.SUCCESS)
 
@@ -97,17 +111,22 @@ class SwapProtocol(NodeProtocol):
                 logging.debug(f"{ns.sim_time():.1f}: {self.node.name} ready to swap")
                 self.node.qmemory.execute_program(self._program, qubit_mapping=[1, 0])
                 yield self.await_program(self.node.qmemory)
-                m, = self._program.output["m"]
+                (m,) = self._program.output["m"]
                 m1, m2 = self._bsm_op_indices[m]
                 # Send result to right node on end
-                logging.debug(f"{ns.sim_time():.1f}: {self.node.name} sending corrections out")
-                self.node.ports["ccon_R"].tx_output(Message([m1, m2], path=0, timeslot=self.oracle.timeslot))
+                logging.debug(
+                    f"{ns.sim_time():.1f}: {self.node.name} sending corrections out"
+                )
+                self.node.ports["ccon_R"].tx_output(
+                    Message([m1, m2], path=0, timeslot=self.oracle.timeslot)
+                )
             else:
                 logging.debug(f"{ns.sim_time():.1f}: {self.node.name} cannot swap")
 
 
 class SwapCorrectProgram(QuantumProgram):
     """Quantum processor program that applies all swap corrections."""
+
     default_num_qubits = 1
 
     def set_corrections(self, x_corr, z_corr):
@@ -115,7 +134,7 @@ class SwapCorrectProgram(QuantumProgram):
         self.z_corr = z_corr % 2
 
     def program(self):
-        q1, = self.get_qubit_indices(1)
+        (q1,) = self.get_qubit_indices(1)
         if self.x_corr == 1:
             self.apply(INSTR_X, q1)
         if self.z_corr == 1:
@@ -143,6 +162,7 @@ class CorrectProtocol(NodeProtocol):
         Node this protocol runs on.
 
     """
+
     def __init__(self, node, oracle):
         super().__init__(node, "CorrectProtocol")
         self.oracle = oracle
@@ -158,9 +178,11 @@ class CorrectProtocol(NodeProtocol):
                 continue
 
             # Retrieve the message's metadata set by the transmitter
-            timeslot = message.meta['timeslot']
-            path = message.meta['path']
-            logging.debug(f"{ns.sim_time():.1f}: {self.node.name} received corrections for timeslot {timeslot} path {path}")
+            timeslot = message.meta["timeslot"]
+            path = message.meta["path"]
+            logging.debug(
+                f"{ns.sim_time():.1f}: {self.node.name} received corrections for timeslot {timeslot} path {path}"
+            )
 
             # If we get timeslot greater than what we have, this means that
             # the last one is expired, so we can clean all pending data
@@ -178,7 +200,9 @@ class CorrectProtocol(NodeProtocol):
 
             m0, m1 = message.items
             path_info.incr(m1, m0)
-            logging.debug(f"{ns.sim_time():.1f}: {self.node.name} got {path_info.counter} correction ({m0}, {m1}) out of {path_length} needed")
+            logging.debug(
+                f"{ns.sim_time():.1f}: {self.node.name} got {path_info.counter} correction ({m0}, {m1}) out of {path_length} needed"
+            )
             if path_info.counter == path_length:
                 if path_info.x_corr or path_info.z_corr:
                     self._program.set_corrections(path_info.x_corr, path_info.z_corr)
@@ -186,7 +210,10 @@ class CorrectProtocol(NodeProtocol):
                     yield self.await_program(self.node.qmemory)
                 self.oracle.success()
                 self.send_signal(Signals.SUCCESS)
-                logging.debug(f"{ns.sim_time():.1f}: {self.node.name} corrections applied, notifying SUCCESS")
+                logging.debug(
+                    f"{ns.sim_time():.1f}: {self.node.name} corrections applied, notifying SUCCESS"
+                )
+
 
 class FibreDepolarizeModel(QuantumErrorModel):
     """Custom non-physical error model used to show the effectiveness
@@ -205,11 +232,12 @@ class FibreDepolarizeModel(QuantumErrorModel):
         Must be between 0 and 1. Default 0.025
 
     """
+
     def __init__(self, p_depol_init=0.009, p_depol_length=0.025):
         super().__init__()
-        self.properties['p_depol_init'] = p_depol_init
-        self.properties['p_depol_length'] = p_depol_length
-        self.required_properties = ['length']
+        self.properties["p_depol_init"] = p_depol_init
+        self.properties["p_depol_length"] = p_depol_length
+        self.required_properties = ["length"]
 
     def error_operation(self, qubits, delta_time=0, **kwargs):
         """Uses the length property to calculate a depolarization probability,
@@ -224,9 +252,11 @@ class FibreDepolarizeModel(QuantumErrorModel):
 
         """
         for qubit in qubits:
-            prob = 1 - (1 - self.properties['p_depol_init']) * np.power(
-                10, - kwargs['length']**2 * self.properties['p_depol_length'] / 10)
+            prob = 1 - (1 - self.properties["p_depol_init"]) * np.power(
+                10, -kwargs["length"] ** 2 * self.properties["p_depol_length"] / 10
+            )
             ns.qubits.depolarize(qubit, prob=prob)
+
 
 class Oracle(Protocol):
     def __init__(self, nodes):
@@ -253,10 +283,14 @@ class Oracle(Protocol):
         assert self.src_node is not None
         assert self.dst_node is not None
 
-        logging.debug((f"{ns.sim_time():.1f}: {self.name} received "
-              f"from node {node.name} link states {link_states}"))
+        logging.debug(
+            (
+                f"{ns.sim_time():.1f}: {self.name} received "
+                f"from node {node.name} link states {link_states}"
+            )
+        )
 
-        self.pending_nodes.remove(node.name)  
+        self.pending_nodes.remove(node.name)
 
         if self.pending_nodes == set([self.src_node, self.dst_node]):
             # Send signal to all waiting nodes that they should move on
@@ -277,6 +311,7 @@ class Oracle(Protocol):
             raise Exception(f"Unknown path {path}")
         return len(self.node_names) - 2
 
+
 class PassThroughProtocol(Protocol):
     def __init__(self, name, in_port, out_port):
         self.name = name
@@ -288,8 +323,11 @@ class PassThroughProtocol(Protocol):
             yield self.await_port_input(self.in_port)
             message = self.in_port.rx_input()
             if message is not None:
-                logging.debug(f"{ns.sim_time():.1f}: message received by {self.name}: {message}")
+                logging.debug(
+                    f"{ns.sim_time():.1f}: message received by {self.name}: {message}"
+                )
             self.out_port.tx_output(message)
+
 
 class MyEntanglingConnection(Connection):
     """A connection that generates entanglement.
@@ -311,36 +349,50 @@ class MyEntanglingConnection(Connection):
     def __init__(self, length, source_frequency, name="MyEntanglingConnection"):
 
         super().__init__(name=name)
-        qsource = QSource(f"qsource_{name}", StateSampler([ks.b00], [1.0]), num_ports=2,
-                          timing_model=FixedDelayModel(delay=1e9 / source_frequency),
-                          status=SourceStatus.EXTERNAL)
+        qsource = QSource(
+            f"qsource_{name}",
+            StateSampler([ks.b00], [1.0]),
+            num_ports=2,
+            timing_model=FixedDelayModel(delay=1e9 / source_frequency),
+            status=SourceStatus.EXTERNAL,
+        )
         self.add_subcomponent(qsource, name="qsource")
 
         clock = Clock("clock", frequency=source_frequency, max_ticks=-1, start_delay=0)
         self.add_subcomponent(clock, name="clock")
 
-        pass_through_a = Component(name=name + "_PassThroughA", port_names=["in_port", "out_port"])
+        pass_through_a = Component(
+            name=name + "_PassThroughA", port_names=["in_port", "out_port"]
+        )
         self.add_subcomponent(pass_through_a, name="passthrough_a")
 
-        pass_through_b = Component(name=name + "_PassThroughB", port_names=["in_port", "out_port"])
+        pass_through_b = Component(
+            name=name + "_PassThroughB", port_names=["in_port", "out_port"]
+        )
         self.add_subcomponent(pass_through_b, name="passthrough_b")
 
         self.pass_through_protocol_a = PassThroughProtocol(
             pass_through_a.name + "_proto",
-            pass_through_a.ports["in_port"], pass_through_a.ports["out_port"])
+            pass_through_a.ports["in_port"],
+            pass_through_a.ports["out_port"],
+        )
         self.pass_through_protocol_b = PassThroughProtocol(
             pass_through_b.name + "_proto",
-            pass_through_b.ports["in_port"], pass_through_b.ports["out_port"])
+            pass_through_b.ports["in_port"],
+            pass_through_b.ports["out_port"],
+        )
         self.pass_through_protocol_a.start()
         self.pass_through_protocol_b.start()
 
         clock.ports["cout"].connect(qsource.ports["trigger"])
         clock.start()
 
-        qchannel_c2a = QuantumChannel("qchannel_C2A", length=length / 2,
-                                      models={"delay_model": FibreDelayModel()})
-        qchannel_c2b = QuantumChannel("qchannel_C2B", length=length / 2,
-                                      models={"delay_model": FibreDelayModel()})
+        qchannel_c2a = QuantumChannel(
+            "qchannel_C2A", length=length / 2, models={"delay_model": FibreDelayModel()}
+        )
+        qchannel_c2b = QuantumChannel(
+            "qchannel_C2B", length=length / 2, models={"delay_model": FibreDelayModel()}
+        )
         # Add channels and forward quantum channel output to external port output:
         self.add_subcomponent(qchannel_c2a, forward_output=[("A", "recv")])
         self.add_subcomponent(qchannel_c2b, forward_output=[("B", "recv")])
@@ -351,6 +403,7 @@ class MyEntanglingConnection(Connection):
         pass_through_a.ports["out_port"].connect(qchannel_c2a.ports["send"])
         qsource.ports["qout1"].connect(pass_through_b.ports["in_port"])
         pass_through_b.ports["out_port"].connect(qchannel_c2b.ports["send"])
+
 
 def create_qprocessor(name):
     """Factory to create a quantum processor for each node in the repeater chain network.
@@ -373,15 +426,21 @@ def create_qprocessor(name):
     gate_noise_model = DephaseNoiseModel(noise_rate)
     mem_noise_model = DepolarNoiseModel(noise_rate)
     physical_instructions = [
-        PhysicalInstruction(INSTR_X, duration=gate_duration,
-                            q_noise_model=gate_noise_model),
-        PhysicalInstruction(INSTR_Z, duration=gate_duration,
-                            q_noise_model=gate_noise_model),
+        PhysicalInstruction(
+            INSTR_X, duration=gate_duration, q_noise_model=gate_noise_model
+        ),
+        PhysicalInstruction(
+            INSTR_Z, duration=gate_duration, q_noise_model=gate_noise_model
+        ),
         PhysicalInstruction(INSTR_MEASURE_BELL, duration=gate_duration),
     ]
-    qproc = QuantumProcessor(name, num_positions=2, fallback_to_nonphysical=False,
-                             mem_noise_models=[mem_noise_model] * 2,
-                             phys_instructions=physical_instructions)
+    qproc = QuantumProcessor(
+        name,
+        num_positions=2,
+        fallback_to_nonphysical=False,
+        mem_noise_models=[mem_noise_model] * 2,
+        phys_instructions=physical_instructions,
+    )
     return qproc
 
 
@@ -412,34 +471,48 @@ def setup_network(num_nodes, node_distance, source_frequency):
     for i in range(num_nodes):
         # Prepend leading zeros to the number
         num_zeros = int(np.log10(num_nodes)) + 1
-        nodes.append(Node(f"Node_{i:0{num_zeros}d}", qmemory=create_qprocessor(f"qproc_{i}")))
+        nodes.append(
+            Node(f"Node_{i:0{num_zeros}d}", qmemory=create_qprocessor(f"qproc_{i}"))
+        )
     network.add_nodes(nodes)
     # Create quantum and classical connections:
     for i in range(num_nodes - 1):
-        node, node_right = nodes[i], nodes[i+1]
+        node, node_right = nodes[i], nodes[i + 1]
         # Create quantum connection
-        qconn = MyEntanglingConnection(name=f"qconn_{i}-{i+1}", length=node_distance,
-                                       source_frequency=source_frequency)
+        qconn = MyEntanglingConnection(
+            name=f"qconn_{i}-{i+1}",
+            length=node_distance,
+            source_frequency=source_frequency,
+        )
         # Add a noise model which depolarizes the qubits exponentially
         # depending on the connection length
-        for channel_name in ['qchannel_C2A', 'qchannel_C2B']:
-            qconn.subcomponents[channel_name].models['quantum_noise_model'] =\
-                FibreDepolarizeModel()
+        for channel_name in ["qchannel_C2A", "qchannel_C2B"]:
+            qconn.subcomponents[channel_name].models[
+                "quantum_noise_model"
+            ] = FibreDepolarizeModel()
         port_name, port_r_name = network.add_connection(
-            node, node_right, connection=qconn, label="quantum")
+            node, node_right, connection=qconn, label="quantum"
+        )
         # Forward qconn directly to quantum memories for right and left inputs:
         node.ports[port_name].forward_input(node.qmemory.ports["qin0"])  # R input
         node_right.ports[port_r_name].forward_input(
-            node_right.qmemory.ports["qin1"])  # L input
+            node_right.qmemory.ports["qin1"]
+        )  # L input
         # Create classical connection
         cconn = ClassicalConnection(name=f"cconn_{i}-{i+1}", length=node_distance)
         port_name, port_r_name = network.add_connection(
-            node, node_right, connection=cconn, label="classical",
-            port_name_node1="ccon_R", port_name_node2="ccon_L")
+            node,
+            node_right,
+            connection=cconn,
+            label="classical",
+            port_name_node1="ccon_R",
+            port_name_node2="ccon_L",
+        )
         # Forward cconn to right most node
         if "ccon_L" in node.ports:
             node.ports["ccon_L"].bind_input_handler(
-                lambda message, _node=node: _node.ports["ccon_R"].tx_output(message))
+                lambda message, _node=node: _node.ports["ccon_R"].tx_output(message)
+            )
 
     # Create oracle
     oracle = Oracle(nodes)
@@ -447,6 +520,7 @@ def setup_network(num_nodes, node_distance, source_frequency):
     oracle.set_dst_node(nodes[-1])
 
     return (network, oracle)
+
 
 def setup_repeater_protocol(network, oracle, pfail):
     """Setup repeater protocol on repeater chain network.
@@ -467,7 +541,9 @@ def setup_repeater_protocol(network, oracle, pfail):
     # since the subprotocols would otherwise overwrite each other in the main protocol.
     nodes = [network.nodes[name] for name in sorted(network.nodes.keys())]
     for node in nodes[1:-1]:
-        subprotocol = SwapProtocol(node=node, name=f"Swap_{node.name}", oracle=oracle, pfail=pfail)
+        subprotocol = SwapProtocol(
+            node=node, name=f"Swap_{node.name}", oracle=oracle, pfail=pfail
+        )
         protocol.add_subprotocol(subprotocol)
     # Add CorrectProtocol to Bob
     subprotocol = CorrectProtocol(nodes[-1], oracle=oracle)
@@ -499,15 +575,20 @@ def setup_datacollector(network, protocol):
     nodes = [network.nodes[name] for name in sorted(network.nodes.keys())]
 
     def calc_fidelity(evexpr):
-        qubit_a, = nodes[0].qmemory.peek([0])
-        qubit_b, = nodes[-1].qmemory.peek([1])
+        (qubit_a,) = nodes[0].qmemory.peek([0])
+        (qubit_b,) = nodes[-1].qmemory.peek([1])
         fidelity = ns.qubits.fidelity([qubit_a, qubit_b], ks.b00, squared=True)
         return {"fidelity": fidelity}
 
     dc = DataCollector(calc_fidelity, include_entity_name=False)
-    dc.collect_on(pydynaa.EventExpression(source=protocol.subprotocols['CorrectProtocol'],
-                                          event_type=Signals.SUCCESS.value))
+    dc.collect_on(
+        pydynaa.EventExpression(
+            source=protocol.subprotocols["CorrectProtocol"],
+            event_type=Signals.SUCCESS.value,
+        )
+    )
     return dc
+
 
 def run_simulation(num_nodes=4, node_distance=20, num_iters=100, pfail=0, seed=42):
     """Run the simulation experiment and return the collected data.
@@ -527,21 +608,27 @@ def run_simulation(num_nodes=4, node_distance=20, num_iters=100, pfail=0, seed=4
         Dataframe with recorded fidelity data.
 
     """
-    logging.info(f"starting simulation #{seed}: num_nodes = {num_nodes}, distance = {node_distance} km, messages = {num_iters}, prob. entang. failure = {pfail}")
+    logging.info(
+        f"starting simulation #{seed}: num_nodes = {num_nodes}, distance = {node_distance} km, messages = {num_iters}, prob. entang. failure = {pfail}"
+    )
     ns.sim_reset()
     ns.set_random_state(seed=seed)
     random.seed(seed)
     est_runtime = (0.5 + num_nodes - 1) * node_distance * 5e3
     logging.debug(f"estimated end-to-end delay = {est_runtime} ns")
-    (network, oracle) = setup_network(num_nodes, node_distance=node_distance,
-                                      source_frequency=1e9 / est_runtime)
+    (network, oracle) = setup_network(
+        num_nodes, node_distance=node_distance, source_frequency=1e9 / est_runtime
+    )
     protocol = setup_repeater_protocol(network, oracle, pfail)
     dc = setup_datacollector(network, protocol)
     protocol.start()
     ns.sim_run(est_runtime * num_iters)
-    return (dc.dataframe,
-            protocol.subprotocols['Oracle'].num_attempts,
-            protocol.subprotocols['Oracle'].num_successful)
+    return (
+        dc.dataframe,
+        protocol.subprotocols["Oracle"].num_attempts,
+        protocol.subprotocols["Oracle"].num_successful,
+    )
+
 
 def create_plot(num_iters=2000):
     """Run the simulation for multiple nodes and distances and show them in a figure.
@@ -554,54 +641,69 @@ def create_plot(num_iters=2000):
         At least 1. Default 2000.
     """
     from matplotlib import pyplot as plt
+
     _, ax = plt.subplots()
     data_rates = []
     for distance in [10, 30, 50]:
         for pfail in [0, 0.1, 0.2]:
             data = pandas.DataFrame()
             for num_node in range(3, 8):
-            # for num_node in [3, 8]:
-                res = run_simulation(num_nodes=num_node,
-                                     node_distance=distance / num_node,
-                                     num_iters=num_iters,
-                                     pfail=pfail)
+                # for num_node in [3, 8]:
+                res = run_simulation(
+                    num_nodes=num_node,
+                    node_distance=distance / num_node,
+                    num_iters=num_iters,
+                    pfail=pfail,
+                )
                 assert len(res) == 3
-                data[num_node] = res[0]['fidelity']
+                data[num_node] = res[0]["fidelity"]
                 assert res[1] > 0
-                data_rates.append({
-                    'distance': distance,
-                    'pfail': pfail,
-                    'num_node': num_node,
-                    'attempts': res[1],
-                    'successful': res[2],
-                    'success_prob': res[2]/res[1]
-                    })
+                data_rates.append(
+                    {
+                        "distance": distance,
+                        "pfail": pfail,
+                        "num_node": num_node,
+                        "attempts": res[1],
+                        "successful": res[2],
+                        "success_prob": res[2] / res[1],
+                    }
+                )
 
             # For errorbars we use the standard error of the mean (sem)
-            data = data.agg(['mean', 'sem']).T.rename(columns={'mean': 'fidelity'})
-            data.plot(y='fidelity', yerr='sem', label=f"{distance} km, p = {pfail}", ax=ax)
+            data = data.agg(["mean", "sem"]).T.rename(columns={"mean": "fidelity"})
+            data.plot(
+                y="fidelity", yerr="sem", label=f"{distance} km, p = {pfail}", ax=ax
+            )
     plt.xlabel("number of nodes")
     plt.ylabel("fidelity")
-    plt.title("Repeater chain with different total lengths\nand entanglement failure probabilities")
+    plt.title(
+        "Repeater chain with different total lengths\nand entanglement failure probabilities"
+    )
     plt.show(block=False)
 
     # Plot the probabilities
     df_rates = pandas.DataFrame(data_rates)
 
-    metrics = ['successful', 'success_prob']
+    metrics = ["successful", "success_prob"]
 
     for metric in metrics:
         _, ax = plt.subplots()
-        
-        for distance in set(df_rates['distance']):
-            for pfail in set(df_rates['pfail']):
-                df_rates.loc[(df_rates['distance'] == distance) & (df_rates['pfail'] == pfail)].\
-                    plot(x='num_node', y=metric, label=f"{distance} km, p = {pfail}", ax=ax)
+
+        for distance in set(df_rates["distance"]):
+            for pfail in set(df_rates["pfail"]):
+                df_rates.loc[
+                    (df_rates["distance"] == distance) & (df_rates["pfail"] == pfail)
+                ].plot(
+                    x="num_node", y=metric, label=f"{distance} km, p = {pfail}", ax=ax
+                )
 
         plt.xlabel("number of nodes")
         plt.ylabel(metric)
-        plt.title("Repeater chain with different total lengths\nand entanglement failure probabilities")
+        plt.title(
+            "Repeater chain with different total lengths\nand entanglement failure probabilities"
+        )
         plt.show(block=(metric == metrics[-1]))
+
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
@@ -615,15 +717,17 @@ if __name__ == "__main__":
         create_plot(num_iters=num_timeslots)
 
     else:
-        distance = 6.25 # km
+        distance = 6.25  # km
         seed = 42
         pfail = 0.2
-        num_nodes=8
+        num_nodes = 8
 
-        df = run_simulation(num_nodes=num_nodes,
-                            node_distance=distance,
-                            num_iters=num_timeslots,
-                            pfail=pfail,
-                            seed=seed)
+        df = run_simulation(
+            num_nodes=num_nodes,
+            node_distance=distance,
+            num_iters=num_timeslots,
+            pfail=pfail,
+            seed=seed,
+        )
 
         logging.info(df)

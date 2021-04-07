@@ -11,11 +11,13 @@ __all__ = [
     "Topography",
     "TopographyDist",
     "Topography2D",
-    ]
+]
+
 
 class EmptyTopology(Exception):
     def __init__(self):
         self.message = "Empty graph"
+
 
 class Topology:
     """Topology of a network of nodes.
@@ -24,13 +26,13 @@ class Topology:
 
     The default weight/cost of each edge is assigned in the ctor and can
     then be updated with the `change_weight()` method.
-    
+
     Parameters
     ----------
     type : { 'chain', 'grid', 'ring', 'brite', 'edges' }
         Type of the network to create.
     size : int, optional
-        The actual meaning depends on the network type: 
+        The actual meaning depends on the network type:
         with "grid", this is the number of nodes on any side of the square;
         with "chain" and "ring" it's the number of nodes.
         It is unused with other topology types.
@@ -55,6 +57,7 @@ class Topology:
     EmptyTopology
         If the graph would be empty.
     """
+
     def __init__(self, type, size=1, in_file_name="", edges=[], default_weight=1):
         # Lazy-initialized list of the (unidirectional) edges
         self._edges = None
@@ -91,24 +94,24 @@ class Topology:
             if size == 0:
                 raise EmptyTopology()
             elif size < 1:
-                raise ValueError(f'Invalid size value for chain: {size}')
+                raise ValueError(f"Invalid size value for chain: {size}")
             self.num_nodes = size
             for u in range(size):
                 if u == 0:
                     self._graph[u] = set([1])
-                elif u == (size-1):
+                elif u == (size - 1):
                     self._graph[u] = set([size - 2])
                 else:
-                    self._graph[u] = set([u-1, u+1])
+                    self._graph[u] = set([u - 1, u + 1])
             if type == "ring":
-                self._graph[0].add(size-1)
-                self._graph[size-1].add(0)
+                self._graph[0].add(size - 1)
+                self._graph[size - 1].add(0)
 
         elif type == "grid":
             if size == 0:
                 raise EmptyTopology()
             elif size < 1:
-                raise ValueError(f'Invalid size value for grid: {size}')
+                raise ValueError(f"Invalid size value for grid: {size}")
             self.num_nodes = size * size
 
             for u in range(self.num_nodes):
@@ -122,20 +125,20 @@ class Topology:
                 if u // size != (size - 1):
                     neighbours.append(u + size)
                 self._graph[u] = set(neighbours)
-            
+
         elif type == "brite":
             # Read from file
-            with open(in_file_name, 'r') as in_file:
+            with open(in_file_name, "r") as in_file:
                 edge_mode = False
                 for line in in_file:
-                    if 'Edges:' in line:
+                    if "Edges:" in line:
                         edge_mode = True
                         continue
 
                     if not edge_mode:
                         continue
 
-                    (_, u, v) = line.split(' ')[0:3]
+                    (_, u, v) = line.split(" ")[0:3]
                     (u, v) = (int(u), int(v))
                     if u not in self._graph:
                         self._graph[u] = set()
@@ -163,7 +166,7 @@ class Topology:
             self.num_nodes = len(self._graph)
 
         else:
-            raise ValueError(f'Invalid topology type: {type}')
+            raise ValueError(f"Invalid topology type: {type}")
 
         # Create the list of node names with identifiers, until `assign_names()`
         # is called
@@ -184,7 +187,7 @@ class Topology:
 
         A graph is connected if there is a path between any source and
         destination.
-        
+
         """
         self._create_nexthop_matrix()
         for u, next_hops in self._nexthop_matrix.items():
@@ -195,14 +198,14 @@ class Topology:
 
     def isedge(self, src, dst):
         """Return True if `dst` has an incoming edge from `src`.
-        
+
         Parameters
         ----------
         src : int
             Source node identifier.
         dst : int
             Destination node identifier.
-        
+
         Returns
         -------
         bool
@@ -213,7 +216,7 @@ class Topology:
         ------
         KeyError
             If `dst` does not exist in the graph.
-            
+
         """
 
         return src in self._graph[dst]
@@ -242,7 +245,7 @@ class Topology:
         -------
         int
             Degree of `node`.
-        
+
         """
 
         return len(self._graph[node])
@@ -287,7 +290,7 @@ class Topology:
         ValueError
             If not all nodes are assigned a name or if there are some names
             that do not correspond to a node identifier.
-        
+
         """
 
         if set(self._graph.keys()) != set(node_names.keys()):
@@ -312,19 +315,19 @@ class Topology:
         ----------
         other : `Topology`
             The topology from which to re-use names.
-        
+
         Raises
         ------
         KeyError
             If `other` does not define some of the nodes that are in the
             current `Topology` object.
-        
+
         """
 
         node_names = dict()
         for u in self._graph.keys():
             node_names[u] = other.get_name_by_id(u)
-        
+
         self.assign_names(node_names)
 
     def copy_weights(self, other):
@@ -334,13 +337,13 @@ class Topology:
         ----------
         other : `Topology`
             The topology from which to re-use names.
-        
+
         Raises
         ------
         KeyError
             If `other` does not define some of the nodes that are in the
             current `Topology` object.
-        
+
         """
 
         self._default_weight = other._default_weight
@@ -392,7 +395,7 @@ class Topology:
             raise ValueError(f"Invalid node name: {node_name}")
 
         return node_id
-    
+
     def edges(self):
         """Return the list of unidirectional edges"""
 
@@ -406,7 +409,7 @@ class Topology:
                 self._edges.append([u, v])
 
         self._edges.sort()
-        return self._edges 
+        return self._edges
 
     def biedges(self):
         """Return the list of pairs of node which have a bidirectional connection.
@@ -424,7 +427,7 @@ class Topology:
         self._biedges = []
         for u, neigh in self._graph.items():
             for v in neigh:
-                pair = [u ,v]
+                pair = [u, v]
                 pair.sort()
                 if pair not in self._biedges:
                     self._biedges.append(pair)
@@ -468,7 +471,9 @@ class Topology:
             if cur_id == edge_id:
                 return v
 
-        raise IndexError(f"Cannot find edge identifier {edge_id} for node {target_node}")
+        raise IndexError(
+            f"Cannot find edge identifier {edge_id} for node {target_node}"
+        )
 
     def __repr__(self):
         if self._str_repr is None:
@@ -482,13 +487,11 @@ class Topology:
         return str(self._str_repr)
 
     def neigh(self, node):
-        """Return the neighbours of the given node
-        """
+        """Return the neighbours of the given node"""
 
         return self._graph[node]
 
-    def spt(self, dst, opposite_weight=False,
-            weights=None, combine_op=operator.add):
+    def spt(self, dst, opposite_weight=False, weights=None, combine_op=operator.add):
         """Compute the shortest-path tree to `dst`.
 
         Parameters
@@ -517,11 +520,11 @@ class Topology:
         prev = {}
         for v in self._graph.keys():
             Q.append(v)
-            dist[v] = float('inf')
+            dist[v] = float("inf")
             prev[v] = None
 
         if dst not in dist:
-            raise KeyError(f'{dst} is not in {Q}')
+            raise KeyError(f"{dst} is not in {Q}")
 
         dist[dst] = 0
 
@@ -552,7 +555,6 @@ class Topology:
 
         return (prev, dist)
 
-
     def minmax(self, dst, src, other, omega=1000):
         """Compute the shortest path to `dst` from `src`.
 
@@ -582,14 +584,13 @@ class Topology:
             such path, return None.
         """
 
-        topo = Topology('edges', edges=self.edges())
+        topo = Topology("edges", edges=self.edges())
 
         for (u, v) in self.edges():
             topo.change_weight(
-                v, u, 
-                omega * other.distance(u, dst) + self.distance(u, dst)
+                v, u, omega * other.distance(u, dst) + self.distance(u, dst)
             )
-        
+
         try:
             return Topology.traversing(topo.spt(dst, combine_op=max)[0], src, dst)
         except KeyError:
@@ -611,7 +612,7 @@ class Topology:
         -------
         list
             A list of intermediate hops to reach `dst` from `src`.
-        
+
         """
 
         paths = []
@@ -633,7 +634,7 @@ class Topology:
     def distance_path(self, src, dst, middle_nodes):
         """Return the distance to go from `src` to `dst` via `middle_nodes`."""
 
-        distance = 0.
+        distance = 0.0
         last_node = src
         for curr_node in middle_nodes:
             distance += self.weight(last_node, curr_node)
@@ -648,15 +649,14 @@ class Topology:
         diameter = 0
         for _, neigh in self._distance_matrix.items():
             diameter = max(
-                diameter,
-                max([x for x in neigh.values() if x != float('inf')]))
+                diameter, max([x for x in neigh.values() if x != float("inf")])
+            )
         return diameter
 
     def farthest_nodes(self):
-        """Return the set of pairs of nodes that are farthest from one another.
-        """
+        """Return the set of pairs of nodes that are farthest from one another."""
 
-        diameter = self.diameter() # also initializes self._distance_matrix
+        diameter = self.diameter()  # also initializes self._distance_matrix
         ret = set()
         for u, neigh in self._distance_matrix.items():
             for v, dist in neigh.items():
@@ -668,7 +668,7 @@ class Topology:
     def longest_path(self):
         """Return the length longest possible acyclic graph."""
 
-        min_path = float('inf')
+        min_path = float("inf")
         for u in self._graph.keys():
             _, dist = self.spt(u, opposite_weight=True)
             min_path = min(min_path, min(dist.values()))
@@ -678,26 +678,34 @@ class Topology:
     def save_dot(self, dotfilename):
         """Save the current network to a graph using Graphviz."""
 
-        with open('{}.dot'.format(dotfilename), 'w') as dotfile:
-            dotfile.write('digraph G {\n')
-            dotfile.write('overlap=scale;\n')
-            dotfile.write('node [shape=ellipse];\n')
+        with open("{}.dot".format(dotfilename), "w") as dotfile:
+            dotfile.write("digraph G {\n")
+            dotfile.write("overlap=scale;\n")
+            dotfile.write("node [shape=ellipse];\n")
             for u, neigh in self._graph.items():
                 for v in neigh:
                     u_name = self.get_name_by_id(u)
                     v_name = self.get_name_by_id(v)
-                    dotfile.write(f'{u_name} -> {v_name};\n')
-                dotfile.write(f'{u_name} [shape=rectangle]\n')
-            dotfile.write('}\n')
+                    dotfile.write(f"{u_name} -> {v_name};\n")
+                dotfile.write(f"{u_name} [shape=rectangle]\n")
+            dotfile.write("}\n")
 
         subprocess.Popen(
-            ['dot', '-Tpng',
-             '-o{}.png'.format(dotfilename),
-             '{}.dot'.format(dotfilename)])
+            [
+                "dot",
+                "-Tpng",
+                "-o{}.png".format(dotfilename),
+                "{}.dot".format(dotfilename),
+            ]
+        )
         subprocess.Popen(
-            ['dot', '-Tsvg',
-             '-o{}.svg'.format(dotfilename),
-             '{}.dot'.format(dotfilename)])
+            [
+                "dot",
+                "-Tsvg",
+                "-o{}.svg".format(dotfilename),
+                "{}.dot".format(dotfilename),
+            ]
+        )
 
     def extract_bidirectional(self):
         """Return a new `Topology` object with only bidirectional edges.
@@ -728,10 +736,10 @@ class Topology:
 
         if not edges:
             raise EmptyTopology()
-        
+
         # Create a new topology with the bi-directional edges only
         topo = Topology("edges", edges=edges)
-        
+
         # Copy names
         node_names = dict()
         for node_id in nodes_kept:
@@ -763,7 +771,7 @@ class Topology:
         ------
         KeyError
             If `src` or `dst` do not exist or if they are not neighbors.
-        
+
         """
 
         self._check_neighbors(src, dst)
@@ -786,7 +794,7 @@ class Topology:
         ----------
         weight : float
             The weight to be assigned to all edges.
-        
+
         """
 
         self._default_weight = weight
@@ -801,7 +809,7 @@ class Topology:
         src : int
             The source node.
         dst : int
-            The destination node.            
+            The destination node.
 
         Returns
         -------
@@ -822,8 +830,7 @@ class Topology:
 
     @staticmethod
     def traversing(spt, src, dst):
-        """"Return the nodes traversed from src to dst according to the given SPT
-        """
+        """ "Return the nodes traversed from src to dst according to the given SPT"""
 
         ret = []
         nxt = src
@@ -861,7 +868,7 @@ class Topology:
                 if v not in incoming:
                     incoming[v] = []
                 incoming[v].append(u)
-        
+
         # Assign identifiers after sorting the list of incoming nodes
         for u, nodes in incoming.items():
             nodes.sort()
@@ -876,7 +883,7 @@ class Topology:
         if self._nexthop_matrix is not None:
             assert self._distance_matrix is not None
             return
-            
+
         self._nexthop_matrix = dict()
         self._distance_matrix = dict()
 
@@ -889,12 +896,14 @@ class Topology:
         self._nexthop_matrix = None
         self._distance_matrix = None
 
+
 class Topography:
     """Base class definining the interface of topography objects.
 
     A topography objects models a physical arrangement of nodes in space.
-    
+
     """
+
     def __init__(self):
         pass
 
@@ -902,9 +911,9 @@ class Topography:
         """Return the distance from `src` to `dst`.
 
         In general the distance from `dst` to `src` might be different.
-        
+
         """
-        raise NotImplementedError('This method must be overridden')
+        raise NotImplementedError("This method must be overridden")
 
     def update_topology(self, topology):
         """Set the distance between nodes in `topology` according to this object.
@@ -916,8 +925,8 @@ class Topography:
 
         """
         for edge in topology.edges():
-            topology.change_weight(edge[0], edge[1],
-                                   self.distance(edge[0], edge[1]))
+            topology.change_weight(edge[0], edge[1], self.distance(edge[0], edge[1]))
+
 
 class TopographyDist(Topography):
     def __init__(self):
@@ -946,7 +955,7 @@ class TopographyDist(Topography):
             The second node identifier.
         dist : float
             The distance between the two nodes.
-        
+
         """
 
         if u not in self._distance:
@@ -978,15 +987,17 @@ class TopographyDist(Topography):
         Returns
         -------
         A `TopographyDist` object.
-        
+
         """
 
         if distance_min > distance_max:
-            raise ValueError(f'Min distance ({distance_min}) cannot be greater than max distance ({distance_max})')
+            raise ValueError(
+                f"Min distance ({distance_min}) cannot be greater than max distance ({distance_max})"
+            )
 
         topo = TopographyDist()
         for e in topology.biedges():
-            dist =  random.uniform(distance_min, distance_max)
+            dist = random.uniform(distance_min, distance_max)
             topo.set_distance(e[0], e[1], dist)
         return topo
 
@@ -998,7 +1009,8 @@ class TopographyDist(Topography):
             for v in neigh:
                 ret.append([u, v])
         return ret
-        
+
+
 class Topography2D(TopographyDist):
     """Physical layout of nodes on a plane.
 
@@ -1022,35 +1034,36 @@ class Topography2D(TopographyDist):
         If an invalid type is provided by the user, or if the arguments
         are invalid.
     """
+
     def __init__(self, type, nodes=2, size=1, threshold=2):
         super().__init__()
 
         if nodes < 0:
-            raise ValueError(f'The number of nodes cannot be negative: {nodes}')
+            raise ValueError(f"The number of nodes cannot be negative: {nodes}")
 
         self._positions = dict()
-        if type == 'disc':
+        if type == "disc":
             if size < 0:
-                raise ValueError(f'The disc radius cannot be negative: {size}')
+                raise ValueError(f"The disc radius cannot be negative: {size}")
             for u in range(nodes):
                 dist_from_origin = size * math.sqrt(random.random())
                 theta = random.uniform(0, 2 * math.pi)
                 self._positions[u] = (
                     dist_from_origin * math.cos(theta),
-                    dist_from_origin * math.sin(theta)
+                    dist_from_origin * math.sin(theta),
                 )
 
-        elif type == 'square':
+        elif type == "square":
             if size < 0:
-                raise ValueError(f'The square edge size cannot be negative: {size}')
+                raise ValueError(f"The square edge size cannot be negative: {size}")
             for u in range(nodes):
                 self._positions[u] = (
                     random.uniform(-size / 2, size / 2),
-                    random.uniform(-size / 2, size / 2)
+                    random.uniform(-size / 2, size / 2),
                 )
 
         else:
-            raise ValueError(f'Invalid Topography2D type: {type}')
+            raise ValueError(f"Invalid Topography2D type: {type}")
 
         self._make_edges(threshold)
 
@@ -1070,7 +1083,7 @@ class Topography2D(TopographyDist):
 
     def export(self, node_path, edge_path):
         """Export the topography to the given text files.
-        
+
         Parameters
         ----------
         node_path : str
@@ -1080,23 +1093,23 @@ class Topography2D(TopographyDist):
 
         """
 
-        with open(node_path, 'w') as nodefp, open(edge_path, 'w') as edgefp:
+        with open(node_path, "w") as nodefp, open(edge_path, "w") as edgefp:
             for u, pos in self._positions.items():
-                nodefp.write(f'{u} {pos[0]}, {pos[1]}\n')
+                nodefp.write(f"{u} {pos[0]}, {pos[1]}\n")
             for e in self.edges():
                 u = e[0]
                 v = e[1]
                 u_pos = self._positions[u]
                 v_pos = self._positions[v]
-                edgefp.write(f'{u} {u_pos[0]} {u_pos[1]} {v} {v_pos[0]} {v_pos[1]}\n')
+                edgefp.write(f"{u} {u_pos[0]} {u_pos[1]} {v} {v_pos[0]} {v_pos[1]}\n")
 
     def _make_edges(self, threshold):
         for u, u_pos in self._positions.items():
             for v, v_pos in self._positions.items():
                 if u == v:
                     continue
-                dist = math.sqrt(\
-                    (u_pos[0] - v_pos[0]) ** 2 +\
-                    (u_pos[1] - v_pos[1]) ** 2)
+                dist = math.sqrt(
+                    (u_pos[0] - v_pos[0]) ** 2 + (u_pos[1] - v_pos[1]) ** 2
+                )
                 if dist <= threshold:
                     self.set_distance(u, v, dist)

@@ -5,9 +5,8 @@ from netsquid.components import QuantumProcessor, PhysicalInstruction
 from netsquid.components.models.qerrormodels import DepolarNoiseModel, DephaseNoiseModel
 from netsquid.components.instructions import INSTR_MEASURE_BELL, INSTR_X, INSTR_Z
 
-__all__ = [
-    "QRepeater"
-    ]
+__all__ = ["QRepeater"]
+
 
 class QRepeater:
     """Factory to create a quantum processor for a quantum repeater.
@@ -24,19 +23,22 @@ class QRepeater:
     gate_duration : float
         Time required to perform each quantum operation [ns].
     """
+
     def __init__(self, dephase_rate, depol_rate, gate_duration):
         self._gate_noise_model = DephaseNoiseModel(dephase_rate)
         self._mem_noise_model = DepolarNoiseModel(depol_rate)
         self._physical_instructions = [
-            PhysicalInstruction(INSTR_X, duration=gate_duration,
-                                q_noise_model=self._gate_noise_model),
-            PhysicalInstruction(INSTR_Z, duration=gate_duration,
-                                q_noise_model=self._gate_noise_model),
+            PhysicalInstruction(
+                INSTR_X, duration=gate_duration, q_noise_model=self._gate_noise_model
+            ),
+            PhysicalInstruction(
+                INSTR_Z, duration=gate_duration, q_noise_model=self._gate_noise_model
+            ),
             PhysicalInstruction(INSTR_MEASURE_BELL, duration=gate_duration),
         ]
 
     def make_qprocessor(self, name, mem_positions):
-        """Create a quantum processor with the class-specified characteristics. 
+        """Create a quantum processor with the class-specified characteristics.
 
         Parameters
         ----------
@@ -52,7 +54,9 @@ class QRepeater:
 
         """
         return QuantumProcessor(
-            name, num_positions=mem_positions, 
+            name,
+            num_positions=mem_positions,
             fallback_to_nonphysical=False,
             mem_noise_models=[self._mem_noise_model] * mem_positions,
-            phys_instructions=self._physical_instructions)
+            phys_instructions=self._physical_instructions,
+        )

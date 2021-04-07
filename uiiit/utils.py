@@ -14,7 +14,8 @@ __all__ = [
     "ParallerRunner",
     "SocketCollector",
     "TestDirectory",
-    ]
+]
+
 
 class SocketSender:
     """Sends a pickle-serialized object via TCP socket.
@@ -25,8 +26,9 @@ class SocketSender:
         The address of the server.
     port : int
         The TCP server's port.
-    
+
     """
+
     def __init__(self, address, port):
         self._address = address
         self._port = port
@@ -42,7 +44,7 @@ class SocketSender:
         obj
             The object to be sent. Anything pickle-serializable is OK, though
             its maximum (serialized) size must fit in an unsigned 32-bit int.
-        
+
         Raises
         ------
         ValueError
@@ -53,18 +55,23 @@ class SocketSender:
         s.connect((self._address, self._port))
 
         msg = pickle.dumps(obj)
-        if len(msg) >= 2**32:
-            raise ValueError(f'The serialization of the object is too big ({len(msg)} bytes)')
+        if len(msg) >= 2 ** 32:
+            raise ValueError(
+                f"The serialization of the object is too big ({len(msg)} bytes)"
+            )
 
         try:
-            hdr = int.to_bytes(len(msg), 4, byteorder='big', signed=False)
+            hdr = int.to_bytes(len(msg), 4, byteorder="big", signed=False)
 
-            logging.info(f'Sending object of size ({len(msg)}) to {self._address}:{self._port}')
+            logging.info(
+                f"Sending object of size ({len(msg)}) to {self._address}:{self._port}"
+            )
             sent = s.send(hdr + msg)
             assert sent == (4 + len(msg))
 
         finally:
             s.close()
+
 
 class SocketCollector:
     """Collects pickle-serialized objects sent via a TCP socket.
@@ -75,7 +82,7 @@ class SocketCollector:
         The address where to bind the listening socket.
     port : int
         The port where to bind the listing socket.
-    
+
     """
 
     def __init__(self, address, port):
@@ -92,14 +99,18 @@ class SocketCollector:
 
         """
 
-        ret = [] # the list of objects returned
+        ret = []  # the list of objects returned
 
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         try:
             s.bind((self._address, self._port))
             s.listen()
-            logging.info((f"Listening on {self._address}:{self._port}, "
-                          f"waiting for {expected} objects"))
+            logging.info(
+                (
+                    f"Listening on {self._address}:{self._port}, "
+                    f"waiting for {expected} objects"
+                )
+            )
 
             while len(ret) < expected:
                 clientsocket, address = s.accept()
@@ -111,30 +122,33 @@ class SocketCollector:
                         if not hdr:
                             clientsocket.close()
                             break
-                        
-                        msg_len = int.from_bytes(hdr, byteorder='big', signed=False)
 
-                        buf = b''
+                        msg_len = int.from_bytes(hdr, byteorder="big", signed=False)
+
+                        buf = b""
                         total = 0
 
                         while total != msg_len:
                             msg = clientsocket.recv(msg_len - total)
                             buf += msg
                             total += len(msg)
-                        
+
                         assert len(buf) == msg_len
 
-                        logging.info(f"object received, {expected - len(ret) - 1} to go")
+                        logging.info(
+                            f"object received, {expected - len(ret) - 1} to go"
+                        )
 
                         ret.append(pickle.loads(buf))
-                
+
                 finally:
                     clientsocket.close()
 
         finally:
             s.close()
-        
+
         return ret
+
 
 class SocketParallerRunner:
     """Run a given function in parallel and return the list of their return values.
@@ -149,6 +163,7 @@ class SocketParallerRunner:
         The port where to bind the listing TCP socket.
 
     """
+
     def __init__(self, address, port):
         self._address = address
         self._port = port
@@ -182,7 +197,7 @@ class SocketParallerRunner:
         Returns
         -------
         A list of items, one for each function invoked.
-        
+
         Raises
         ------
         ValueError
@@ -211,6 +226,7 @@ class SocketParallerRunner:
             p.join()
 
         return ret
+
 
 class ParallerRunner:
     @staticmethod
@@ -242,7 +258,7 @@ class ParallerRunner:
         Returns
         -------
         A list of items, one for each function invoked.
-        
+
         Raises
         ------
         ValueError
@@ -275,21 +291,26 @@ class ParallerRunner:
 
         return ret
 
+
 class TestDirectory:
     """Create a directory for tests that is removed upon exiting the context."""
 
     def __init__(self):
-        self._path = 'test_directory'
+        self._path = "test_directory"
         self._rmdir()
         os.mkdir(self._path)
+
     def __enter__(self):
         return self._path
+
     def __exit__(self, type, value, traceback):
         self._rmdir()
         pass
+
     def _rmdir(self):
         if os.path.exists(self._path):
             shutil.rmtree(self._path)
+
 
 class Chronometer:
     """Logs the time required to execute instructions."""
@@ -301,4 +322,4 @@ class Chronometer:
         pass
 
     def __exit__(self, type, value, traceback):
-        logging.debug(f'Elapsed time: {time.monotonic() - self._start}')
+        logging.debug(f"Elapsed time: {time.monotonic() - self._start}")

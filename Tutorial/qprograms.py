@@ -55,7 +55,13 @@ import pydynaa
 
 import netsquid as ns
 from netsquid.protocols import NodeProtocol
-from netsquid.components import QuantumChannel, QuantumMemory, QuantumProgram, QuantumProcessor, PhysicalInstruction
+from netsquid.components import (
+    QuantumChannel,
+    QuantumMemory,
+    QuantumProgram,
+    QuantumProcessor,
+    PhysicalInstruction,
+)
 from netsquid.nodes import Node, DirectConnection
 from netsquid.protocols.protocol import Signals
 from netsquid.qubits import qubitapi as qapi, ketstates
@@ -64,6 +70,7 @@ from netsquid.components.models.delaymodels import FibreDelayModel
 from netsquid.components.models.qerrormodels import FibreLossModel
 from netsquid.util.datacollector import DataCollector
 import netsquid.components.instructions as instr
+
 
 class CreateProtocol(NodeProtocol):
     create_period = 100000
@@ -79,6 +86,7 @@ class CreateProtocol(NodeProtocol):
             self.counter += 1
             logging.info(f"{ns.sim_time():.1f}: CreateProtocol sending out qubits")
 
+
 class EntangleProtocol(NodeProtocol):
     def __init__(self, node, memory_tdelay):
         super().__init__(node)
@@ -87,13 +95,15 @@ class EntangleProtocol(NodeProtocol):
     def memory_tdelay_wait(self):
         """Wait a random time to simulate transfer delay of memory components"""
 
-        wait_time = random.uniform(self.memory_tdelay * 0.5,
-                                   self.memory_tdelay * 1.5)
+        wait_time = random.uniform(self.memory_tdelay * 0.5, self.memory_tdelay * 1.5)
         return self.await_timer(wait_time)
+
 
 class EntangleProtocolIdeal(EntangleProtocol):
     def run(self):
-        logging.info(f"{ns.sim_time():.1f}: EntangleProtocolIdeal started on {self.node.name}")
+        logging.info(
+            f"{ns.sim_time():.1f}: EntangleProtocolIdeal started on {self.node.name}"
+        )
         while True:
             yield self.await_port_input(self.node.ports["from_create"])
             logging.info(f"{ns.sim_time():.1f}: EntangleProtocolIdeal received qubits")
@@ -104,9 +114,12 @@ class EntangleProtocolIdeal(EntangleProtocol):
             ns.qubits.operate(qubits, ns.CX)
             self.node.ports["to_measure"].tx_output(qubits)
 
+
 class EntangleProtocolQMemory(EntangleProtocol):
     def run(self):
-        logging.info(f"{ns.sim_time():.1f}: EntangleProtocolQpu started on {self.node.name}")
+        logging.info(
+            f"{ns.sim_time():.1f}: EntangleProtocolQpu started on {self.node.name}"
+        )
         while True:
             # wait for the qubits to arrive from the channel
 
@@ -114,14 +127,15 @@ class EntangleProtocolQMemory(EntangleProtocol):
 
             if self.node.qmemory.num_used_positions != 2:
                 continue
-            
+
             yield self.memory_tdelay_wait()
-           
+
             # entangle the two qubits
             qubits = self.node.qmemory.peek(positions=[0, 1])
             ns.qubits.operate(qubits[0], ns.H)
             ns.qubits.operate(qubits, ns.CX)
             self.node.qmemory.pop(positions=[0, 1])
+
 
 class EntangleProgram(QuantumProgram):
     default_num_qubits = 2
@@ -132,9 +146,12 @@ class EntangleProgram(QuantumProgram):
         self.apply(instr.INSTR_CNOT, [q1, q2])
         yield self.run()
 
+
 class EntangleProtocolQpu(EntangleProtocol):
     def run(self):
-        logging.info(f"{ns.sim_time():.1f}: EntangleProtocolQpu started on {self.node.name}")
+        logging.info(
+            f"{ns.sim_time():.1f}: EntangleProtocolQpu started on {self.node.name}"
+        )
 
         prog = EntangleProgram()
         while True:
@@ -151,13 +168,16 @@ class EntangleProtocolQpu(EntangleProtocol):
             yield self.await_program(self.node.qmemory)
             self.node.qmemory.pop(positions=[0, 1])
 
+
 class MeasureProtocol(NodeProtocol):
     def __init__(self, node):
         super().__init__(node)
-        self.fidelity = 0.
+        self.fidelity = 0.0
 
     def run(self):
-        logging.info(f"{ns.sim_time():.1f}: MeasureProtocol started on {self.node.name}")
+        logging.info(
+            f"{ns.sim_time():.1f}: MeasureProtocol started on {self.node.name}"
+        )
         while True:
             yield self.await_port_input(self.node.ports["from_entangle"])
             logging.info(f"{ns.sim_time():.1f}: MeasureProtocol received qubits")
@@ -167,77 +187,102 @@ class MeasureProtocol(NodeProtocol):
 
             # Measure fidelity
             self.fidelity = ns.qubits.fidelity(qubits, ketstates.b00, squared=True)
-            logging.info(f"{ns.sim_time():.1f}: {self.node.name} fidelity {self.fidelity:.3f}")
+            logging.info(
+                f"{ns.sim_time():.1f}: {self.node.name} fidelity {self.fidelity:.3f}"
+            )
 
             # Notify that the fidelity can be collected
             self.send_signal(Signals.SUCCESS)
 
+
 def create_memory(depolar_rate):
     noise_model = DepolarNoiseModel(depolar_rate=depolar_rate)
-    memory = QuantumMemory(name="DepolarMemory",
-                           num_positions=2,
-                           memory_noise_models=[noise_model] * 2)
+    memory = QuantumMemory(
+        name="DepolarMemory", num_positions=2, memory_noise_models=[noise_model] * 2
+    )
     return memory
 
+
 def create_processor(depolar_rate, dephase_rate):
-    measure_noise_model = DephaseNoiseModel(dephase_rate=dephase_rate,
-                                            time_independent=True)
+    measure_noise_model = DephaseNoiseModel(
+        dephase_rate=dephase_rate, time_independent=True
+    )
     memory_noise_model = DepolarNoiseModel(depolar_rate=depolar_rate)
     physical_instructions = [
         PhysicalInstruction(instr.INSTR_INIT, duration=3, parallel=True),
         PhysicalInstruction(instr.INSTR_H, duration=1, parallel=True, topology=[0, 1]),
-        PhysicalInstruction(instr.INSTR_X, duration=1, parallel=True, topology=[0], q_noise_model=measure_noise_model),
+        PhysicalInstruction(
+            instr.INSTR_X,
+            duration=1,
+            parallel=True,
+            topology=[0],
+            q_noise_model=measure_noise_model,
+        ),
         PhysicalInstruction(instr.INSTR_Z, duration=1, parallel=True, topology=[0]),
         PhysicalInstruction(instr.INSTR_S, duration=1, parallel=True, topology=[0]),
-        PhysicalInstruction(instr.INSTR_CNOT, duration=4, parallel=True, topology=[(0, 1)]),
-        PhysicalInstruction(instr.INSTR_MEASURE, duration=7, parallel=False, topology=[0],
-                            q_noise_model=measure_noise_model, apply_q_noise_after=False),
-        PhysicalInstruction(instr.INSTR_MEASURE, duration=7, parallel=False, topology=[1])
+        PhysicalInstruction(
+            instr.INSTR_CNOT, duration=4, parallel=True, topology=[(0, 1)]
+        ),
+        PhysicalInstruction(
+            instr.INSTR_MEASURE,
+            duration=7,
+            parallel=False,
+            topology=[0],
+            q_noise_model=measure_noise_model,
+            apply_q_noise_after=False,
+        ),
+        PhysicalInstruction(
+            instr.INSTR_MEASURE, duration=7, parallel=False, topology=[1]
+        ),
     ]
-    processor = QuantumProcessor("Qpu",
-                                 num_positions=2,
-                                 models={'qout_noise_model': measure_noise_model},
-                                 mem_noise_models=[memory_noise_model] * 2,
-                                 phys_instructions=physical_instructions)
+    processor = QuantumProcessor(
+        "Qpu",
+        num_positions=2,
+        models={"qout_noise_model": measure_noise_model},
+        mem_noise_models=[memory_noise_model] * 2,
+        phys_instructions=physical_instructions,
+    )
 
     return processor
 
+
 def run_replication(scenario, seed, depolar_rate, dephase_rate, memory_tdelay):
     # Configuration
-    sim_duration = 1e7 # ns
-    length = 1 # km
+    sim_duration = 1e7  # ns
+    length = 1  # km
     ns.sim_reset()
     random.seed(seed)
     ns.set_random_state(seed=seed)
     ns.set_qstate_formalism(ns.QFormalism.DM)
 
     # Check configuration
-    assert scenario in ['ideal', 'qmemory', 'qpu']
+    assert scenario in ["ideal", "qmemory", "qpu"]
 
     #
     # Create nodes
     #
-    
+
     # node that creates the qubits
     create_node = Node("CreateNode", port_names=["to_entangle"])
 
     # node that entangles them, depending on the scenario
-    if scenario == 'ideal':
+    if scenario == "ideal":
         entangle_node = Node("EntangleNode", port_names=["from_create", "to_measure"])
 
-    elif scenario == 'qmemory' or scenario == 'qpu':
-        qmemory = create_memory(depolar_rate) \
-            if scenario == 'qmemory' \
+    elif scenario == "qmemory" or scenario == "qpu":
+        qmemory = (
+            create_memory(depolar_rate)
+            if scenario == "qmemory"
             else create_processor(depolar_rate=depolar_rate, dephase_rate=dephase_rate)
+        )
         entangle_node = Node(
-            "EntangleNode",
-            port_names=["from_create", "to_measure"],
-            qmemory=qmemory)
-        entangle_node.ports['from_create'].forward_input(qmemory.ports['qin'])
-        qmemory.ports['qout'].forward_output(entangle_node.ports['to_measure'])
+            "EntangleNode", port_names=["from_create", "to_measure"], qmemory=qmemory
+        )
+        entangle_node.ports["from_create"].forward_input(qmemory.ports["qin"])
+        qmemory.ports["qout"].forward_output(entangle_node.ports["to_measure"])
 
     assert entangle_node is not None
-    
+
     # node that does the fidelity measurement
     measure_node = Node("MeasureNode", port_names=["from_entangle"])
 
@@ -245,12 +290,42 @@ def run_replication(scenario, seed, depolar_rate, dephase_rate, memory_tdelay):
     channel_loss_model = FibreLossModel(p_loss_init=0.1, p_loss_length=0.05)
     create_entangle_dc = DirectConnection(
         "Create2Entangle",
-        QuantumChannel(f"Channel_LR_C2E", length=length, models={'quantum_loss_model': channel_loss_model, 'delay_model': FibreDelayModel()}),
-        QuantumChannel(f"Channel_RL_C2E", length=length, models={'quantum_loss_model': channel_loss_model, 'delay_model': FibreDelayModel()}))
+        QuantumChannel(
+            f"Channel_LR_C2E",
+            length=length,
+            models={
+                "quantum_loss_model": channel_loss_model,
+                "delay_model": FibreDelayModel(),
+            },
+        ),
+        QuantumChannel(
+            f"Channel_RL_C2E",
+            length=length,
+            models={
+                "quantum_loss_model": channel_loss_model,
+                "delay_model": FibreDelayModel(),
+            },
+        ),
+    )
     entangle_measure_dc = DirectConnection(
         "Entangle2Measure",
-        QuantumChannel(f"Channel_LR_E2M", length=length, models={'quantum_loss_model': channel_loss_model, 'delay_model': FibreDelayModel()}),
-        QuantumChannel(f"Channel_RL_E2M", length=length, models={'quantum_loss_model': channel_loss_model, 'delay_model': FibreDelayModel()}))
+        QuantumChannel(
+            f"Channel_LR_E2M",
+            length=length,
+            models={
+                "quantum_loss_model": channel_loss_model,
+                "delay_model": FibreDelayModel(),
+            },
+        ),
+        QuantumChannel(
+            f"Channel_RL_E2M",
+            length=length,
+            models={
+                "quantum_loss_model": channel_loss_model,
+                "delay_model": FibreDelayModel(),
+            },
+        ),
+    )
 
     # Connect nodes through connections
     create_node.ports["to_entangle"].connect(create_entangle_dc.ports["A"])
@@ -259,16 +334,13 @@ def run_replication(scenario, seed, depolar_rate, dephase_rate, memory_tdelay):
     measure_node.ports["from_entangle"].connect(entangle_measure_dc.ports["B"])
 
     # Create protocols
-    protocols = [
-        MeasureProtocol(measure_node),
-        CreateProtocol(create_node)
-    ]
+    protocols = [MeasureProtocol(measure_node), CreateProtocol(create_node)]
 
-    if scenario == 'ideal':
+    if scenario == "ideal":
         protocols.append(EntangleProtocolIdeal(entangle_node, memory_tdelay))
-    elif scenario == 'qmemory':
+    elif scenario == "qmemory":
         protocols.append(EntangleProtocolQMemory(entangle_node, memory_tdelay))
-    elif scenario == 'qpu':
+    elif scenario == "qpu":
         protocols.append(EntangleProtocolQpu(entangle_node, memory_tdelay))
 
     # Data collection
@@ -280,8 +352,9 @@ def run_replication(scenario, seed, depolar_rate, dephase_rate, memory_tdelay):
         return {"fidelity": protocol.fidelity, "delay": delay, "losses": losses}
 
     dc = DataCollector(collect_fidelity_data)
-    dc.collect_on(pydynaa.EventExpression(source=protocols[0],
-                                          event_type=Signals.SUCCESS.value))
+    dc.collect_on(
+        pydynaa.EventExpression(source=protocols[0], event_type=Signals.SUCCESS.value)
+    )
 
     # Start all protocols
     for protocol in protocols:
@@ -292,7 +365,8 @@ def run_replication(scenario, seed, depolar_rate, dephase_rate, memory_tdelay):
 
     return dc.dataframe
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     # logging.basicConfig(level=logging.INFO)
     # run_replication(scenario='ideal', seed=42, depolar_rate=1e7, dephase_rate=0.2, memory_tdelay=10)
     # run_replication(scenario='qpu', seed=42, depolar_rate=1e7, dephase_rate=0.2, memory_tdelay=10)
@@ -301,30 +375,45 @@ if __name__ == '__main__':
 
     data = pandas.DataFrame()
 
-    for scenario in ['ideal', 'qmemory', 'qpu']:
+    for scenario in ["ideal", "qmemory", "qpu"]:
         for depolar_rate in [1e6, 1e7, 1e8]:
             for dephase_rate in [0.01, 0.1]:
                 for memory_tdelay in [1, 5, 10]:
                     for seed in range(1):
                         logging.info(f"replication {seed}")
-                        df = run_replication(scenario=scenario, seed=seed,
-                                            depolar_rate=depolar_rate,
-                                            dephase_rate=dephase_rate,
-                                            memory_tdelay=memory_tdelay)
-                        df['scenario'] = scenario
-                        df['depolar_rate'] = depolar_rate
-                        df['dephase_rate'] = dephase_rate
-                        df['memory_tdelay'] = memory_tdelay
+                        df = run_replication(
+                            scenario=scenario,
+                            seed=seed,
+                            depolar_rate=depolar_rate,
+                            dephase_rate=dephase_rate,
+                            memory_tdelay=memory_tdelay,
+                        )
+                        df["scenario"] = scenario
+                        df["depolar_rate"] = depolar_rate
+                        df["dephase_rate"] = dephase_rate
+                        df["memory_tdelay"] = memory_tdelay
                         data = data.append(df)
 
-    print(data.groupby(
-        ["depolar_rate", "scenario", "dephase_rate", "memory_tdelay"])['fidelity'].agg(
-            fidelity='mean', sem='sem').reset_index())
+    print(
+        data.groupby(["depolar_rate", "scenario", "dephase_rate", "memory_tdelay"])[
+            "fidelity"
+        ]
+        .agg(fidelity="mean", sem="sem")
+        .reset_index()
+    )
 
-    print(data.groupby(
-        ["depolar_rate", "scenario", "dephase_rate", "memory_tdelay"])['delay'].agg(
-            delay='mean', sem='sem').reset_index())
+    print(
+        data.groupby(["depolar_rate", "scenario", "dephase_rate", "memory_tdelay"])[
+            "delay"
+        ]
+        .agg(delay="mean", sem="sem")
+        .reset_index()
+    )
 
-    print(data.groupby(
-        ["depolar_rate", "scenario", "dephase_rate", "memory_tdelay"])['losses'].agg(
-            losses='sum').reset_index())
+    print(
+        data.groupby(["depolar_rate", "scenario", "dephase_rate", "memory_tdelay"])[
+            "losses"
+        ]
+        .agg(losses="sum")
+        .reset_index()
+    )

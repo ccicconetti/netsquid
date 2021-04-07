@@ -12,9 +12,8 @@ from netsquid.components.models.delaymodels import FibreDelayModel
 
 from uiiit.qconnection import EntanglingConnection
 
-__all__ = [
-    "QNetwork"
-    ]
+__all__ = ["QNetwork"]
+
 
 class QNetwork:
     """Factory to create a network made of quantum repeaters.
@@ -26,12 +25,13 @@ class QNetwork:
     qerr_model: :class:`netsquid.components.models.qerrormodels.QuantumErrorModel`
         The quantum error model to use.
     """
+
     def __init__(self, source_frequency, qerr_model):
         self._source_frequency = source_frequency
         self._qerr_model = qerr_model
 
     def make_network(self, name, qrepeater_factory, topology, topography):
-        """Create a quantum network with the class-specified characteristics. 
+        """Create a quantum network with the class-specified characteristics.
 
         Parameters
         ----------
@@ -58,10 +58,14 @@ class QNetwork:
         # Create nodes and add them to the network
         nodes = []
         for i in range(topology.num_nodes):
-            nodes.append(Node(
-                f"Node_{i:0{num_zeros}d}",
-                qmemory=qrepeater_factory.make_qprocessor(
-                    f"qproc_{i}", len(topology.neigh(i)))))
+            nodes.append(
+                Node(
+                    f"Node_{i:0{num_zeros}d}",
+                    qmemory=qrepeater_factory.make_qprocessor(
+                        f"qproc_{i}", len(topology.neigh(i))
+                    ),
+                )
+            )
         network.add_nodes(nodes)
 
         # Create quantum and classical connections
@@ -73,41 +77,67 @@ class QNetwork:
             lhs_node, rhs_node = nodes[u], nodes[v]
             lhs_id, rhs_id = topology.incoming_id(u, v), topology.incoming_id(v, u)
 
-            logging.debug((f"creating quantum and classical connections between "
-                           f"{lhs_node.name} (port {lhs_id}) and "
-                           f"{rhs_node.name} (port {rhs_id})"))
+            logging.debug(
+                (
+                    f"creating quantum and classical connections between "
+                    f"{lhs_node.name} (port {lhs_id}) and "
+                    f"{rhs_node.name} (port {rhs_id})"
+                )
+            )
 
             # Create a bidirectional quantum connection between the two nodes
             # that also emits periodically entangled qubits
             qconn = EntanglingConnection(
                 name=f"qconn_{u}-{v}",
                 length=length,
-                source_frequency=self._source_frequency)
+                source_frequency=self._source_frequency,
+            )
 
             # Add quantum noise model
-            for channel_name in ['qchannel_C2A', 'qchannel_C2B']:
-                qconn.subcomponents[channel_name].models['quantum_noise_model'] = self._qerr_model
+            for channel_name in ["qchannel_C2A", "qchannel_C2B"]:
+                qconn.subcomponents[channel_name].models[
+                    "quantum_noise_model"
+                ] = self._qerr_model
 
             # Connect the two nodes lhs and rhs via the entangling connection
             network.add_connection(
-                lhs_node, rhs_node, connection=qconn, label="quantum",
-                port_name_node1=f"qcon{lhs_id}", port_name_node2=f"qcon{rhs_id}")
+                lhs_node,
+                rhs_node,
+                connection=qconn,
+                label="quantum",
+                port_name_node1=f"qcon{lhs_id}",
+                port_name_node2=f"qcon{rhs_id}",
+            )
 
             # Forward incoming qubits to the quantum memory positions of the nodes
-            lhs_node.ports[f"qcon{lhs_id}"].forward_input(lhs_node.qmemory.ports[f"qin{lhs_id}"])
-            rhs_node.ports[f"qcon{rhs_id}"].forward_input(rhs_node.qmemory.ports[f"qin{rhs_id}"])
+            lhs_node.ports[f"qcon{lhs_id}"].forward_input(
+                lhs_node.qmemory.ports[f"qin{lhs_id}"]
+            )
+            rhs_node.ports[f"qcon{rhs_id}"].forward_input(
+                rhs_node.qmemory.ports[f"qin{rhs_id}"]
+            )
 
             # Create a classical connection between the two nodes
             cconn = DirectConnection(
                 name=f"cconn_{u}-{v}",
                 channel_AtoB=ClassicalChannel(
-                    "Channel_A2B", length=length,
-                    models={"delay_model": FibreDelayModel()}),
+                    "Channel_A2B",
+                    length=length,
+                    models={"delay_model": FibreDelayModel()},
+                ),
                 channel_BtoA=ClassicalChannel(
-                    "Channel_B2A", length=length,
-                    models={"delay_model": FibreDelayModel()}))
+                    "Channel_B2A",
+                    length=length,
+                    models={"delay_model": FibreDelayModel()},
+                ),
+            )
             network.add_connection(
-                lhs_node, rhs_node, connection=cconn, label="classical",
-                port_name_node1=f"ccon{lhs_id}", port_name_node2=f"ccon{rhs_id}")
+                lhs_node,
+                rhs_node,
+                connection=cconn,
+                label="classical",
+                port_name_node1=f"ccon{lhs_id}",
+                port_name_node2=f"ccon{rhs_id}",
+            )
 
         return network

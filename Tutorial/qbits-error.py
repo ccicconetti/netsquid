@@ -33,11 +33,11 @@ ns.qubits.operate(q0, ns.H)
 ns.qubits.operate([q0, q1], ns.CX)
 
 print_dm_single([q0, q1])
-print(f'fidelity = {fidelity([q0, q1], ketstates.b00):.2f}')
+print(f"fidelity = {fidelity([q0, q1], ketstates.b00):.2f}")
 
-# create a depolarizing channel with certainty (probability = 1) to corrupt 
+# create a depolarizing channel with certainty (probability = 1) to corrupt
 model = DepolarNoiseModel(depolar_rate=1, time_independent=True)
 
 model.compute_model([q0, q1])
 print_dm_single([q0, q1])
-print(f'fidelity = {fidelity([q0, q1], ketstates.b00):.2f}')
+print(f"fidelity = {fidelity([q0, q1], ketstates.b00):.2f}")

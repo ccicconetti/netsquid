@@ -6,20 +6,23 @@ import logging
 
 import netsquid as ns
 
+
 def print_dm_all(qubits):
     for qubit in qubits:
-        print('{}\n{}\n'.format(qubit.name, ns.qubits.reduced_dm(qubit)))
+        print("{}\n{}\n".format(qubit.name, ns.qubits.reduced_dm(qubit)))
 
-def measure_all(qubits, base = 'Z'):
-    assert base == 'Z' or base == 'X'
+
+def measure_all(qubits, base="Z"):
+    assert base == "Z" or base == "X"
     for qubit in qubits:
-        if base == 'Z':
+        if base == "Z":
             res, prob = ns.qubits.measure(qubit)
-            value = '|0>' if res == 0 else '|1>'
-        elif base == 'X':
+            value = "|0>" if res == 0 else "|1>"
+        elif base == "X":
             res, prob = ns.qubits.measure(qubit, observable=ns.X)
-            value = '|+>' if res == 0 else '|->'
-        print(f'{qubit.name}: {value} (prob. {prob:.2f})')
+            value = "|+>" if res == 0 else "|->"
+        print(f"{qubit.name}: {value} (prob. {prob:.2f})")
+
 
 def make_bell_pair():
     """Create and return a Bell pair of qubits"""
@@ -29,20 +32,23 @@ def make_bell_pair():
     ns.qubits.operate([q1, q2], ns.CNOT)
     return [q1, q2]
 
+
 def print_nodes_all(nodes):
     """Print information on a bunch of nodes"""
 
     for node in nodes:
-        print(f'{node.name}, ports {[x[0] for x in node.ports.items()]}')
+        print(f"{node.name}, ports {[x[0] for x in node.ports.items()]}")
+
 
 def print_dm_single(qubit):
     """Print the name and reduced density matrix of a qubit"""
     name = None
     if isinstance(qubit, Iterable):
-        name = ','.join([x.name for x in qubit])
+        name = ",".join([x.name for x in qubit])
     else:
         name = qubit.name
-    logging.info(f'{name}, reduce dm:\n{ns.qubits.reduced_dm(qubit)}')
+    logging.info(f"{name}, reduce dm:\n{ns.qubits.reduced_dm(qubit)}")
+
 
 def print_dm(qubits):
     """Print the name and reduced density matrix of one or more qubits"""

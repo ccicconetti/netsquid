@@ -8,9 +8,8 @@ from netsquid.protocols import NodeProtocol, Protocol, Signals
 from netsquid.components import Message, QuantumProgram
 from netsquid.components.instructions import INSTR_MEASURE_BELL, INSTR_X, INSTR_Z
 
-__all__ = [
-    "SwapProtocol"
-    ]
+__all__ = ["SwapProtocol"]
+
 
 class SwapProtocol(NodeProtocol):
     class PathInfo:
@@ -26,11 +25,14 @@ class SwapProtocol(NodeProtocol):
             self.z_corr += z_corr
 
         def __repr__(self):
-            return (f'timeslot {self.timeslot}, counter {self.counter}, '
-                    f'#corrections {self.x_corr} (X) {self.z_corr} (Z)')
+            return (
+                f"timeslot {self.timeslot}, counter {self.counter}, "
+                f"#corrections {self.x_corr} (X) {self.z_corr} (Z)"
+            )
 
     class SwapProgram(QuantumProgram):
         """Quantum processor program that measures two qubits."""
+
         default_num_qubits = 2
 
         def program(self):
@@ -40,6 +42,7 @@ class SwapProtocol(NodeProtocol):
 
     class CorrectProgram(QuantumProgram):
         """Quantum processor program that applies all swap corrections."""
+
         default_num_qubits = 1
 
         def set_corrections(self, x_corr, z_corr):
@@ -47,7 +50,7 @@ class SwapProtocol(NodeProtocol):
             self.z_corr = z_corr % 2
 
         def program(self):
-            q1, = self.get_qubit_indices(1)
+            (q1,) = self.get_qubit_indices(1)
             if self.x_corr == 1:
                 self.apply(INSTR_X, q1)
             if self.z_corr == 1:
@@ -74,22 +77,25 @@ class SwapProtocol(NodeProtocol):
             The numeric identifier of the path to which this message refers.
         timeslot : int
             The timeslot in which the correction must happen.
-        
+
         """
+
         def __init__(self, m0, m1, src, dst, path_id, timeslot):
             assert m0 in [0, 1]
             assert m1 in [0, 1]
 
-            self.m0       = m0
-            self.m1       = m1
-            self.src      = src
-            self.dst      = dst
-            self.path_id  = path_id
+            self.m0 = m0
+            self.m1 = m1
+            self.src = src
+            self.dst = dst
+            self.path_id = path_id
             self.timeslot = timeslot
 
         def __repr__(self):
-            return (f"({self.m0}, {self.m1}) from {self.src} to {self.dst} "
-                    f"(path {self.path_id}) timeslot #{self.timeslot}")
+            return (
+                f"({self.m0}, {self.m1}) from {self.src} to {self.dst} "
+                f"(path {self.path_id}) timeslot #{self.timeslot}"
+            )
 
     """Perform Swap on a repeater node.
 
@@ -124,18 +130,20 @@ class SwapProtocol(NodeProtocol):
         # Discover classical channel ports
         self._cport_names = [x for x in self.node.ports]
         for port in self._cport_names:
-            if 'ccon' not in port:
+            if "ccon" not in port:
                 self._cport_names.remove(port)
 
-        qport_names = ' '.join([x for x in self._qmem.ports])
-        cport_names = ' '.join([x for x in self._cport_names])
-        logging.debug(f"creating SwapProtocol on node {node.name}, qports: {qport_names}, cports: {cport_names}")
+        qport_names = " ".join([x for x in self._qmem.ports])
+        cport_names = " ".join([x for x in self._cport_names])
+        logging.debug(
+            f"creating SwapProtocol on node {node.name}, qports: {qport_names}, cports: {cport_names}"
+        )
 
     def run(self):
-        qports        = [self._qmem.ports[port] for port in self._qmem.ports]
-        qprog_exec    = False
+        qports = [self._qmem.ports[port] for port in self._qmem.ports]
+        qprog_exec = False
         qprog_path_id = None
-        qprog_queue   = []
+        qprog_queue = []
 
         while True:
             # Create an event triggered when ALL the memory ports
@@ -161,9 +169,13 @@ class SwapProtocol(NodeProtocol):
 
             # Wait until any of the events happen
             if qprog_exec:
-                expression = yield qevent | cevent | \
-                    self.await_program(self.node.qmemory,
-                                       await_done=True, await_fail=True)
+                expression = (
+                    yield qevent
+                    | cevent
+                    | self.await_program(
+                        self.node.qmemory, await_done=True, await_fail=True
+                    )
+                )
             else:
                 expression = yield qevent | cevent
 
@@ -172,14 +184,19 @@ class SwapProtocol(NodeProtocol):
                 if not qports_done and ev.source in qports:
                     qports_done = True
                     # Qubits received on all the memory ports
-                    logging.debug((f"{ns.sim_time():.1f}: {self._qmem.name} "
-                                f"{self._qmem.num_used_positions}/{self._qmem.num_positions} "
-                                f"received (empty: {self._qmem.unused_positions})"))
+                    logging.debug(
+                        (
+                            f"{ns.sim_time():.1f}: {self._qmem.name} "
+                            f"{self._qmem.num_used_positions}/{self._qmem.num_positions} "
+                            f"received (empty: {self._qmem.unused_positions})"
+                        )
+                    )
 
                     # All previously received messages should be entirely consumed
-                    assert not self._rx_messages, \
-                        (f'{self.node.name} has non-empty RX messages upon the '
-                         f'beginning of a new timeslot: {self._rx_messages}')
+                    assert not self._rx_messages, (
+                        f"{self.node.name} has non-empty RX messages upon the "
+                        f"beginning of a new timeslot: {self._rx_messages}"
+                    )
 
                     positions = []
                     for pos in range(self._qmem.num_positions):
@@ -193,28 +210,45 @@ class SwapProtocol(NodeProtocol):
                     # Entangle the memory positions as specified by the oracle.
                     if self.node.name in self._oracle.mem_pos:
                         for mem_pos in self._oracle.mem_pos[self.node.name]:
-                            logging.debug((f"{ns.sim_time():.1f}: {self.node.name} "
-                                           f"ready to swap by measuring on {mem_pos.prv_pos} "
-                                           f"and {mem_pos.nxt_pos} for path {mem_pos.path_id}"))
+                            logging.debug(
+                                (
+                                    f"{ns.sim_time():.1f}: {self.node.name} "
+                                    f"ready to swap by measuring on {mem_pos.prv_pos} "
+                                    f"and {mem_pos.nxt_pos} for path {mem_pos.path_id}"
+                                )
+                            )
                             self.node.qmemory.execute_program(
                                 self._swap_program,
-                                qubit_mapping=[mem_pos.prv_pos, mem_pos.nxt_pos])
+                                qubit_mapping=[mem_pos.prv_pos, mem_pos.nxt_pos],
+                            )
                             yield self.await_program(self.node.qmemory)
-                            m, = self._swap_program.output["m"]
+                            (m,) = self._swap_program.output["m"]
                             m1, m2 = self._bsm_op_indices[m]
 
                             # Send result to one of the two parties creating the
                             # end-to-end entanglement
                             cchan = self._cport_name(mem_pos.dst_name)
-                            logging.debug((f"{ns.sim_time():.1f}: {self.node.name} "
-                                           f"sending corrections [{m1}, {m2}] "
-                                           f"(path {mem_pos.path_id}, "
-                                           f"timeslot {self._oracle.timeslot}) to "
-                                           f"{mem_pos.dst_name} via {cchan}"))
-                            msg =  Message([SwapProtocol.CorrectionMessage(
-                                m1, m2,
-                                self.node.name, mem_pos.dst_name,
-                                mem_pos.path_id, self._oracle.timeslot)])
+                            logging.debug(
+                                (
+                                    f"{ns.sim_time():.1f}: {self.node.name} "
+                                    f"sending corrections [{m1}, {m2}] "
+                                    f"(path {mem_pos.path_id}, "
+                                    f"timeslot {self._oracle.timeslot}) to "
+                                    f"{mem_pos.dst_name} via {cchan}"
+                                )
+                            )
+                            msg = Message(
+                                [
+                                    SwapProtocol.CorrectionMessage(
+                                        m1,
+                                        m2,
+                                        self.node.name,
+                                        mem_pos.dst_name,
+                                        mem_pos.path_id,
+                                        self._oracle.timeslot,
+                                    )
+                                ]
+                            )
                             self.node.ports[cchan].tx_output(msg)
 
                 # Check if a QPU operation is complete
@@ -245,8 +279,12 @@ class SwapProtocol(NodeProtocol):
                     if msg is None:
                         break
 
-                    logging.debug((f"{ns.sim_time():.1f}: {self.node.name} "
-                                   f"received message: {msg}"))
+                    logging.debug(
+                        (
+                            f"{ns.sim_time():.1f}: {self.node.name} "
+                            f"received message: {msg}"
+                        )
+                    )
 
                     # From NetSquid documentation:
                     #
@@ -271,8 +309,9 @@ class SwapProtocol(NodeProtocol):
 
                         # This node is the final destination of the message, go on
                         if cur_msg.path_id not in self._rx_messages:
-                            self._rx_messages[cur_msg.path_id] = \
-                                SwapProtocol.PathInfo(self._oracle.timeslot)
+                            self._rx_messages[cur_msg.path_id] = SwapProtocol.PathInfo(
+                                self._oracle.timeslot
+                            )
 
                         path = self._rx_messages[cur_msg.path_id]
                         assert self._oracle.timeslot == path.timeslot
@@ -280,7 +319,9 @@ class SwapProtocol(NodeProtocol):
 
                         path.incr(cur_msg.m1, cur_msg.m0)
 
-                        if path.counter == len(self._oracle.path[cur_msg.path_id].swap_nodes):
+                        if path.counter == len(
+                            self._oracle.path[cur_msg.path_id].swap_nodes
+                        ):
                             if qprog_exec:
                                 qprog_queue.append(cur_msg.path_id)
                             else:
@@ -291,20 +332,24 @@ class SwapProtocol(NodeProtocol):
                                     self._notify_oracle(cur_msg.path_id)
 
     def _notify_oracle(self, path_id):
-        logging.debug((f"{ns.sim_time():.1f}: {self.node.name} "
-                       f"path {path_id} corrections applied"))
+        logging.debug(
+            (
+                f"{ns.sim_time():.1f}: {self.node.name} "
+                f"path {path_id} corrections applied"
+            )
+        )
         del self._rx_messages[path_id]
         self._oracle.success(path_id)
         self.send_signal(Signals.SUCCESS)
 
     def _correct(self, path_id):
         """Execute the correction program for a given path.
-        
+
         Parameters
         ----------
         path_id
             The identifier of the path in this timeslot.
-        
+
         Returns
         -------
         bool
@@ -317,9 +362,15 @@ class SwapProtocol(NodeProtocol):
 
         if path_info.x_corr or path_info.z_corr:
             self._correct_program.set_corrections(path_info.x_corr, path_info.z_corr)
-            logging.debug((f"{ns.sim_time():.1f}: {self.node.name} ready to apply corrections "
-                            f"for path {path_id} to qubit {mem_pos} (status {str(self.node.qmemory.status)})"))
-            self.node.qmemory.execute_program(self._correct_program, qubit_mapping=[mem_pos])
+            logging.debug(
+                (
+                    f"{ns.sim_time():.1f}: {self.node.name} ready to apply corrections "
+                    f"for path {path_id} to qubit {mem_pos} (status {str(self.node.qmemory.status)})"
+                )
+            )
+            self.node.qmemory.execute_program(
+                self._correct_program, qubit_mapping=[mem_pos]
+            )
             return True
 
         return False
@@ -328,12 +379,16 @@ class SwapProtocol(NodeProtocol):
         """Forward the given message `msg` to its destination node."""
 
         cchan = self._cport_name(msg.dst)
-        logging.debug((f"{ns.sim_time():.1f}: {self.node.name} "
-                       f"forwarding message (path {msg.path_id}), "
-                       f"timeslot #{msg.timeslot}) to {msg.dst} via {cchan}"))
+        logging.debug(
+            (
+                f"{ns.sim_time():.1f}: {self.node.name} "
+                f"forwarding message (path {msg.path_id}), "
+                f"timeslot #{msg.timeslot}) to {msg.dst} via {cchan}"
+            )
+        )
         self.node.ports[cchan].tx_output(msg)
 
     def _cport_name(self, dst_name):
         """Return the port name to reach the given destination"""
 
-        return f'ccon{self._oracle.channel_id(self.node.name, dst_name)}'         
+        return f"ccon{self._oracle.channel_id(self.node.name, dst_name)}"

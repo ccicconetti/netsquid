@@ -11,7 +11,8 @@ __all__ = [
     "MultiConstantApplication",
     "MultiRandomApplication",
     "MultiPoissonApplication",
-    ]
+]
+
 
 class Application:
     """Generic class for quantum applications.
@@ -26,6 +27,7 @@ class Application:
     name : str
         A name to identify this application.
     """
+
     def __init__(self, name):
         self.name = name
 
@@ -43,9 +45,10 @@ class Application:
             The first two elemente are the two end-points that wish to
             establish an end-to-end entanglement; the third element is the
             maximum number of qubits required by the application.
-        
+
         """
         raise NotImplementedError("Class Application should be inherited")
+
 
 class SingleApplication(Application):
     """Abstract class to be used by applications returning a single pair.
@@ -65,6 +68,7 @@ class SingleApplication(Application):
         The maximum number of qubits required is negative.
 
     """
+
     def __init__(self, name, max_qubits):
         super().__init__(name)
 
@@ -80,6 +84,7 @@ class SingleApplication(Application):
 
     def _get_single_pair(self):
         raise NotImplementedError("Class SingleApplication should be inherited")
+
 
 class MultiApplication(Application):
     """Abstract class to be used by applications returning multiple pairs.
@@ -99,6 +104,7 @@ class MultiApplication(Application):
         The maximum number of qubits required is negative.
 
     """
+
     def __init__(self, name, max_qubits):
         super().__init__(name)
 
@@ -114,6 +120,7 @@ class MultiApplication(Application):
     def _get_pairs(self):
         raise NotImplementedError("Class MultiApplication should be inherited")
 
+
 class SingleConstantApplication(SingleApplication):
     """Return always the same pair, all with the same maximum number of qubits.
 
@@ -127,20 +134,23 @@ class SingleConstantApplication(SingleApplication):
         The name of the second end-point
     max_qubits : int
         The maximum number of qubits required.
-    
+
     """
 
     def __init__(self, name, alice, bob, max_qubits):
         super().__init__(name, max_qubits)
 
         if alice == bob:
-            raise ValueError(f"Cannot use the same name in SinglePairConstantApplication: {alice}")
+            raise ValueError(
+                f"Cannot use the same name in SinglePairConstantApplication: {alice}"
+            )
 
         self._alice = alice
         self._bob = bob
 
     def _get_single_pair(self):
         return [self._alice, self._bob]
+
 
 class SingleRandomApplication(SingleApplication):
     """Return a random pair from a set, all with the same maximum number of qubits.
@@ -151,13 +161,13 @@ class SingleRandomApplication(SingleApplication):
 
     Parameters
     ----------
-    name : str 
+    name : str
         A name to identify this application.
     node_names : iterable
         The possible names from which to extract the pair
     max_qubits : int
         The maximum number of qubits required.
-    
+
     """
 
     def __init__(self, name, node_names, max_qubits):
@@ -166,11 +176,16 @@ class SingleRandomApplication(SingleApplication):
         self._node_names = set(node_names)
 
         if len(self._node_names) <= 1:
-            raise ValueError(("Invalid cardinality of set of names passed to "
-                              f"SingleRandomPairs: {len(self._node_names)}"))
+            raise ValueError(
+                (
+                    "Invalid cardinality of set of names passed to "
+                    f"SingleRandomPairs: {len(self._node_names)}"
+                )
+            )
 
     def _get_single_pair(self):
         return random.sample(self._node_names, 2)
+
 
 class MultiConstantApplication(MultiApplication):
     """Return always the same pairs, all with the same maximum number of qubits.
@@ -183,26 +198,29 @@ class MultiConstantApplication(MultiApplication):
         The list of pairs to be returned. Must be non-empty.
     max_qubits : int
         The maximum number of qubits required.
-    
+
     """
 
     def __init__(self, name, pairs, max_qubits):
         super().__init__(name, max_qubits)
 
         if not pairs:
-            raise ValueError('Cannot initialize MultiConstantApplication with an empty list of pairs')
+            raise ValueError(
+                "Cannot initialize MultiConstantApplication with an empty list of pairs"
+            )
         self._pairs = []
         for pair in pairs:
             if pair[0] == pair[1]:
-                raise ValueError(f'The two end-points cannot be the same: {pair[0]}')
+                raise ValueError(f"The two end-points cannot be the same: {pair[0]}")
             self._pairs.append([pair[0], pair[1], max_qubits])
 
     def _get_pairs(self):
         return list(self._pairs)
 
+
 class MultiRandomApplication(MultiConstantApplication):
     """Return a random list of pairs from a set.
-    
+
     All pairs returned have the same maximum number of qubits.
 
     The `timeslot` parameter in `get_pairs` is ignored, hence multiple calls
@@ -220,16 +238,20 @@ class MultiRandomApplication(MultiConstantApplication):
         of pairs passed as argument to the ctor.
     max_qubits : int
         The maximum number of qubits required.
-    
+
     """
 
     def __init__(self, name, pairs, cardinality, max_qubits):
         super().__init__(name, pairs, max_qubits)
-        
+
         if cardinality > len(pairs):
-            raise ValueError((f'In MultiRandomApplication cardinality is too '
-                              f'high ({cardinality}) compared to the number of '
-                              f'pairs available ({len(pairs)})'))
+            raise ValueError(
+                (
+                    f"In MultiRandomApplication cardinality is too "
+                    f"high ({cardinality}) compared to the number of "
+                    f"pairs available ({len(pairs)})"
+                )
+            )
 
         self._cardinality = cardinality
 
@@ -239,7 +261,7 @@ class MultiRandomApplication(MultiConstantApplication):
 
 class MultiPoissonApplication(MultiConstantApplication):
     """Return a random list of pairs from a set.
-    
+
     All pairs returned have thxe same maximum number of qubits.
 
     The `timeslot` parameter in `get_pairs` is ignored, hence multiple calls
@@ -258,16 +280,18 @@ class MultiPoissonApplication(MultiConstantApplication):
         The maximum number of qubits required.
     seed : int
         The seed to initialize the internal RNG.
-    
+
     """
 
     def __init__(self, name, pairs, cardinality, max_qubits, seed):
         super().__init__(name, pairs, max_qubits)
 
         if cardinality < 0:
-            raise ValueError(f'Average number of pairs cannot be negative: {cardinality}')
-        
-        self._rng         = default_rng(seed)
+            raise ValueError(
+                f"Average number of pairs cannot be negative: {cardinality}"
+            )
+
+        self._rng = default_rng(seed)
         self._cardinality = cardinality
 
     def _get_pairs(self):
