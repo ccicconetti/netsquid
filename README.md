@@ -48,7 +48,7 @@ using [virtualenv](https://pypi.org/project/virtualenv/):
 
 ```
 virtualenv -p python3 myvenv
-echo 'PYTHONPATH=$PYTHONPATH:$PWD' >> myvenv/bin/activate
+(echo "PYTHONPATH=$PYTHONPATH:$PWD" ; echo "export PYTHONPATH") >> myvenv/bin/activate
 source myvenv/bin/activate
 ```
 
