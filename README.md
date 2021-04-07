@@ -37,8 +37,10 @@ using NetSquid done as part of the research activities of the
 
 # Code
 
-The code assumes version 0.9.8 of Netsquid and has been tested
+The library assumes version 0.9.8 of Netsquid and has been tested
 with Python 3.6.9 on Linux (Ubuntu 18.04) and Python 3.7.6 on Mac OS X.
+
+The source code is formatted using [black](https://github.com/psf/black).
 
 ## Dependencies
 
@@ -69,6 +71,12 @@ If no errors occurred `pip list` will include the packages just installed and yo
 ```
 cd Sandbox
 python my_repeater_chain.py
+```
+
+The following command should execute without throwing a `ModuleNotFoundError` or other exceptions:
+
+```
+python -c "import uiiit.qnetwork"
 ```
 
 ## Unit tests

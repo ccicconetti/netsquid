@@ -39,7 +39,60 @@ Utilities:
 - `manip.py`: post-processing script
 - `run_simulation.py`: defines function `run_simulation` used by all scenarios
 
-## Results
+Examples:
+
+- `minimal.py`: minimal simulation consisting of 100 timeslots with a 3x3 grid and fixed set of parameters
+
+### Example
+
+To test that everything works as expected you can run a minimal simulation:
+
+```
+python minimal.py
+```
+
+This gives the following output:
+
+```
+degree-max = 4
+degree-min = 2
+degree-avg = 2.6666666666666665
+tsduration = 107965.09172722185
+lenrate-1 = 7
+success-0.0 = 16
+success-0.6 = 16
+success-0.7 = 16
+success-0.8 = 16
+lenrate-3 = 6
+success-0.9 = 8
+lenrate-2 = 3
+meas = ['2.000', '2.000', '0.000', '1.000', '2.000', '0.000', '0.000', '2.000', '4.000', '2.000', '0.000', '1.000', '0.000', '1.000', '2.000', '2.000']
+fidelity-2 = ['0.867', '0.876', '0.868', '0.876', '0.876', '0.868', '0.868']
+delay = ['0.018', '0.018', '0.000', '0.117', '0.126', '0.108', '0.000', '0.234', '0.135', '0.234', '0.108', '0.009', '0.000', '0.009', '0.126', '0.018']
+latency-2 = ['0.018', '0.018', '0.018', '0.018', '0.018', '0.018', '0.018']
+length = ['5.379', '5.391', '1.790', '3.620', '5.392', '1.805', '1.797', '5.383', '8.962', '5.380', '1.783', '3.583', '1.800', '3.587', '5.358', '5.358']
+fidelity-0 = ['1.000', '1.000', '1.000', '0.999', '1.000']
+latency-0 = ['0.000', '0.000', '0.000', '0.000', '0.000']
+fidelity-1 = ['0.917', '0.926', '0.926']
+latency-1 = ['0.009', '0.009', '0.009']
+fidelity-4 = ['0.814']
+latency-4 = ['0.027']
+sim_time = ['0.208']
+```
+
+where the meaning of the metrics is the following:
+
+- `degree-X`: the max/min/avg degree of the network (in hops)
+- `tsduration`: the timeslot duration, in ns
+- `lenrate-X`: the number of paths established with length `X` (in hops)
+- `success-X`: the number of successful paths established with fidelity greater than `X`
+- `meas`: the number of Bell measurements (= swaps) performed for each end-to-end path
+- `fidelity-X`: the end-to-end entanglement fidelity, in `[0,1]`, for each end-to-end path of `X` hops
+- `latency-X`: the end-to-end entanglement latency, in ms, for each end-to-end path of `X` hops
+- `delay`: the end-to-end delay, in ms, for each end-to-end path
+- `sim_time`: the (wall clock) time took by the simulation, in s
+
+## Reproducing the results
 
 After setting up the environment you can generated the entire set of results by running
 
@@ -48,6 +101,8 @@ run_all.sh
 ```
 
 Execution may require several hours on a standard PC. You can download the results from [this link](http://turig.iit.cnr.it/~claudio/public/netsquid-results-001.tgz) (272 MB).
+
+### Post-processing
 
 The raw data can be post-processed by running:
 
