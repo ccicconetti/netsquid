@@ -168,10 +168,7 @@ set fit brief errorvariables nocovariancevariables errorscaling prescale nowrap 
 GNUTERM = "wxt"
 ## Last datafile plotted: "< cat algorithm=spf-hops.cardinality=1.dephase_rate=100000.0.seed=*.success-0.0.dat"
 plot \
-'< cat ../results-disc/algorithm=spf-hops.cardinality=1.dephase_rate=100000.0.seed=*.success-0.0.dat' u ($1/1000):(1.0) smooth cnorm w lp pt 4 lt 1 pointinterval 10 title "SPF, 1/{/Symbol l} = 1",\
-'< cat ../results-disc/algorithm=spf-hops.cardinality=3.dephase_rate=100000.0.seed=*.success-0.0.dat' u ($1/1000):(1.0) smooth cnorm w lp pt 6 lt 1 pointinterval 10 title "SPF, 1/{/Symbol l} = 3",\
-'< cat ../results-disc/algorithm=spf-hops.cardinality=5.dephase_rate=100000.0.seed=*.success-0.0.dat' u ($1/1000):(1.0) smooth cnorm w lp pt 8 lt 1 pointinterval 10 title "SPF, 1/{/Symbol l} = 5",\
-'< cat ../results-disc/algorithm=minmax.cardinality=1.dephase_rate=100000.0.seed=*.success-0.0.dat' u ($1/1000):(1.0) smooth cnorm w lp pt 5 lt 1 pointinterval 10 title "MinMax, 1/{/Symbol l} = 1",\
-'< cat ../results-disc/algorithm=minmax.cardinality=3.dephase_rate=100000.0.seed=*.success-0.0.dat' u ($1/1000):(1.0) smooth cnorm w lp pt 7 lt 1 pointinterval 10 title "MinMax, 1/{/Symbol l} = 3",\
-'< cat ../results-disc/algorithm=minmax.cardinality=5.dephase_rate=100000.0.seed=*.success-0.0.dat' u ($1/1000):(1.0) smooth cnorm w lp pt 9 lt 1 pointinterval 10 title "MinMax, 1/{/Symbol l} = 5"
+'< cat ../results-disc/algorithm=minmax.cardinality=1.dephase_rate=100000.0.seed=*.success-0.0.dat' u ($1/1000):(1.0) smooth cnorm w lp pt 4 lt 1 pointinterval 10 title "1/{/Symbol l} = 1",\
+'< cat ../results-disc/algorithm=minmax.cardinality=3.dephase_rate=100000.0.seed=*.success-0.0.dat' u ($1/1000):(1.0) smooth cnorm w lp pt 6 lt 1 pointinterval 10 title "1/{/Symbol l} = 3",\
+'< cat ../results-disc/algorithm=minmax.cardinality=5.dephase_rate=100000.0.seed=*.success-0.0.dat' u ($1/1000):(1.0) smooth cnorm w lp pt 8 lt 1 pointinterval 10 title "1/{/Symbol l} = 5"
 #    EOF

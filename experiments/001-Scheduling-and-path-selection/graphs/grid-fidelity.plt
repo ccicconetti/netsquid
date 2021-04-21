@@ -171,18 +171,14 @@ plot \
  '../results-gridmp/algorithm=always-skip.fidelity.dat' u 1:2 w l lt 1 notitle,\
  '../results-gridmp/algorithm=minmax.fidelity.dat' u 1:2 w l lt 1 notitle,\
  '../results-gridmp/algorithm=random-skip.fidelity.dat' u 1:2 w l lt 1 notitle,\
- '../results-gridmp/algorithm=spf-hops.fidelity.dat' u 1:2 w l lt 1 notitle,\
  '../results-gridmpvar/algorithm=always-skip.fidelity.dat' u 1:2 w l lt 1 notitle,\
  '../results-gridmpvar/algorithm=minmax.fidelity.dat' u 1:2 w l lt 1 notitle,\
  '../results-gridmpvar/algorithm=random-skip.fidelity.dat' u 1:2 w l lt 1 notitle,\
- '../results-gridmpvar/algorithm=spf-hops.fidelity.dat' u 1:2 w l lt 1 notitle,\
 \
  '../results-gridmp/algorithm=always-skip.fidelity.dat' u 1:2:3 w ye lt 1 pt 4 title "Regular - Best FIFO",\
  '../results-gridmp/algorithm=random-skip.fidelity.dat' u 1:2:3 w ye lt 1 pt 6 title "Regular - Random FIFO",\
- '../results-gridmp/algorithm=minmax.fidelity.dat' u 1:2:3 w ye lt 1 pt 8 title "Regular - Strict FIFO/MinMax",\
- '../results-gridmp/algorithm=spf-hops.fidelity.dat' u 1:2:3 w ye lt 1 pt 10 title "Regular - Strict FIFO/SPF",\
+ '../results-gridmp/algorithm=minmax.fidelity.dat' u 1:2:3 w ye lt 1 pt 8 title "Regular - Strict FIFO",\
  '../results-gridmpvar/algorithm=always-skip.fidelity.dat' u 1:2:3 w ye lt 1 pt 5 title "Irregular - Best FIFO",\
  '../results-gridmpvar/algorithm=random-skip.fidelity.dat' u 1:2:3 w ye lt 1 pt 7 title "Irregular - Random FIFO",\
- '../results-gridmpvar/algorithm=minmax.fidelity.dat' u 1:2:3 w ye lt 1 pt 9 title "Irregular - Strict FIFO/MinMax",\
- '../results-gridmpvar/algorithm=spf-hops.fidelity.dat' u 1:2:3 w ye lt 1 pt 11 title "Irregular - Strict FIFO/SPF"
+ '../results-gridmpvar/algorithm=minmax.fidelity.dat' u 1:2:3 w ye lt 1 pt 9 title "Irregular - Strict FIFO"
 #    EOF
