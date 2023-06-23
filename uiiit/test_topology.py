@@ -1,4 +1,4 @@
-__author__  = "Claudio Cicconetti"
+__author__ = "Claudio Cicconetti"
 __version__ = "0.1.0"
 __license__ = "MIT"
 
@@ -10,9 +10,9 @@ import tempfile
 from topology import Topology, EmptyTopology, TopographyDist, Topography2D
 from utils import TestDirectory
 
+
 class TestTopology(unittest.TestCase):
-    brite_topo = \
-b"""Topology: ( 20 Nodes, 37 Edges )
+    brite_topo = b"""Topology: ( 20 Nodes, 37 Edges )
 Model ( 2 ): 20 1000 100 1 2 1 10 1024
 
 Nodes: (4)
@@ -35,19 +35,19 @@ Edges: (5):
     # +--------------------+
     #
     edges_test = [
-            [0,  3],
-            [1, 0],
-            [2, 1],
-            [2, 3],
-            [3, 2],
+        [0, 3],
+        [1, 0],
+        [2, 1],
+        [2, 3],
+        [3, 2],
     ]
 
     edges_test_sparse = [
-            [0,  30],
-            [10, 0],
-            [20, 10],
-            [20, 30],
-            [30, 20],
+        [0, 30],
+        [10, 0],
+        [20, 10],
+        [20, 30],
+        [30, 20],
     ]
 
     def test_invalid_type(self):
@@ -91,11 +91,10 @@ Edges: (5):
 
         self.assertEqual(
             [[0, 1], [1, 0], [1, 2], [2, 1], [2, 3], [3, 2], [3, 4], [4, 3]],
-            net5.edges())            
+            net5.edges(),
+        )
 
-        self.assertEqual(
-            [[0, 1], [1, 2], [2, 3], [3, 4]],
-            net5.biedges())
+        self.assertEqual([[0, 1], [1, 2], [2, 3], [3, 4]], net5.biedges())
 
     def test_ring(self):
         with self.assertRaises(EmptyTopology):
@@ -174,10 +173,10 @@ Edges: (5):
 
     def test_nodes(self):
         net_grid = Topology("grid", size=3)
-        self.assertEqual({0,1,2,3,4,5,6,7,8}, net_grid.nodes())
+        self.assertEqual({0, 1, 2, 3, 4, 5, 6, 7, 8}, net_grid.nodes())
 
         net_chain = Topology("edges", edges=[[1, 0], [2, 1]])
-        self.assertEqual({0,1,2}, net_chain.nodes())
+        self.assertEqual({0, 1, 2}, net_chain.nodes())
 
     def test_degrees(self):
         net = Topology("grid", size=3)
@@ -191,7 +190,7 @@ Edges: (5):
 
         self.assertEqual(4, net.max_degree())
         self.assertEqual(2, net.min_degree())
-        self.assertAlmostEqual((2*4+3*4+4)/9, net.avg_degree())
+        self.assertAlmostEqual((2 * 4 + 3 * 4 + 4) / 9, net.avg_degree())
 
     def test_incoming_id(self):
         net = Topology("grid", size=3)
@@ -243,10 +242,10 @@ Edges: (5):
 
         # shortest path tree to go to 3
         prev, dist = net.spt(3)
-        self.assertEqual(3, dist[0]) # distance 0 -> 3 = 3 hops
-        self.assertEqual(1, prev[0]) # next hop from 0 to 3 is 1
+        self.assertEqual(3, dist[0])  # distance 0 -> 3 = 3 hops
+        self.assertEqual(1, prev[0])  # next hop from 0 to 3 is 1
         # from 0 to 3 the path is 1 --> 2
-        self.assertEqual([1, 2], Topology.traversing(prev, 0, 3)) 
+        self.assertEqual([1, 2], Topology.traversing(prev, 0, 3))
 
     def test_edges_sparse(self):
         net = Topology("edges", edges=self.edges_test_sparse)
@@ -263,36 +262,36 @@ Edges: (5):
 
         # Use name functions without assigning names
 
-        self.assertEqual({'0', '1', '2', '3', '4'}, net.node_names)
+        self.assertEqual({"0", "1", "2", "3", "4"}, net.node_names)
 
-        self.assertEqual('0', net.get_name_by_id(0))
-        self.assertEqual('4', net.get_name_by_id(4))
+        self.assertEqual("0", net.get_name_by_id(0))
+        self.assertEqual("4", net.get_name_by_id(4))
 
-        self.assertEqual(0, net.get_id_by_name('0'))
-        self.assertEqual(4, net.get_id_by_name('4'))
-
-        with self.assertRaises(ValueError):
-            net.get_id_by_name('5')
+        self.assertEqual(0, net.get_id_by_name("0"))
+        self.assertEqual(4, net.get_id_by_name("4"))
 
         with self.assertRaises(ValueError):
-            net.get_id_by_name('-1')
+            net.get_id_by_name("5")
+
+        with self.assertRaises(ValueError):
+            net.get_id_by_name("-1")
 
         # Assign names
         with self.assertRaises(ValueError):
             net.assign_names(dict())
 
         node_names = {
-            0: 'A',
-            1: 'B',
-            2: 'C',
-            3: 'D',
+            0: "A",
+            1: "B",
+            2: "C",
+            3: "D",
         }
 
         with self.assertRaises(ValueError):
             net.assign_names(node_names)
 
-        node_names[4] = 'E'
-        node_names[5] = 'F'
+        node_names[4] = "E"
+        node_names[5] = "F"
 
         with self.assertRaises(ValueError):
             net.assign_names(node_names)
@@ -300,35 +299,35 @@ Edges: (5):
         del node_names[5]
 
         net.assign_names(node_names)
-            
-        self.assertEqual({'A', 'B', 'C', 'D', 'E'}, net.node_names)
 
-        self.assertEqual('A', net.get_name_by_id(0))
-        self.assertEqual('B', net.get_name_by_id(1))
-        self.assertEqual('C', net.get_name_by_id(2))
-        self.assertEqual('D', net.get_name_by_id(3))
-        self.assertEqual('E', net.get_name_by_id(4))
+        self.assertEqual({"A", "B", "C", "D", "E"}, net.node_names)
 
-        self.assertEqual(0, net.get_id_by_name('A'))
-        self.assertEqual(1, net.get_id_by_name('B'))
-        self.assertEqual(2, net.get_id_by_name('C'))
-        self.assertEqual(3, net.get_id_by_name('D'))
-        self.assertEqual(4, net.get_id_by_name('E'))
+        self.assertEqual("A", net.get_name_by_id(0))
+        self.assertEqual("B", net.get_name_by_id(1))
+        self.assertEqual("C", net.get_name_by_id(2))
+        self.assertEqual("D", net.get_name_by_id(3))
+        self.assertEqual("E", net.get_name_by_id(4))
+
+        self.assertEqual(0, net.get_id_by_name("A"))
+        self.assertEqual(1, net.get_id_by_name("B"))
+        self.assertEqual(2, net.get_id_by_name("C"))
+        self.assertEqual(3, net.get_id_by_name("D"))
+        self.assertEqual(4, net.get_id_by_name("E"))
 
         with self.assertRaises(KeyError):
             _ = net.get_name_by_id(5)
 
         with self.assertRaises(KeyError):
-            _ = net.get_id_by_name('F')
+            _ = net.get_id_by_name("F")
 
         # Re-assign names
-        node_names[0] = 'Z'
+        node_names[0] = "Z"
         net.assign_names(node_names)
 
-        self.assertEqual({'Z', 'B', 'C', 'D', 'E'}, net.node_names)
+        self.assertEqual({"Z", "B", "C", "D", "E"}, net.node_names)
 
-        self.assertEqual('Z', net.get_name_by_id(0))
-        self.assertEqual(0, net.get_id_by_name('Z'))
+        self.assertEqual("Z", net.get_name_by_id(0))
+        self.assertEqual(0, net.get_id_by_name("Z"))
 
     def test_copy_names(self):
         net = Topology("chain", size=4)
@@ -339,7 +338,7 @@ Edges: (5):
 
         net2.copy_names(net)
 
-        self.assertEqual({'Donald', 'Goofy', 'Mickey'}, net2.node_names)
+        self.assertEqual({"Donald", "Goofy", "Mickey"}, net2.node_names)
 
     def test_copy_weights(self):
         # 0 --> 1 --> 2
@@ -368,24 +367,27 @@ Edges: (5):
         self.assertEqual(14, net5.distance(0, 2))
 
     def test_extract_bidirectional(self):
-        net = Topology("edges", edges=[
-            [0, 1],
-            [0, 4],
-            [1, 0],
-            [1, 3],
-            [2, 1],
-            [3, 1],
-            [3, 2],
-            [3, 4],
-            [4, 3]
-        ])
-        
+        net = Topology(
+            "edges",
+            edges=[
+                [0, 1],
+                [0, 4],
+                [1, 0],
+                [1, 3],
+                [2, 1],
+                [3, 1],
+                [3, 2],
+                [3, 4],
+                [4, 3],
+            ],
+        )
+
         node_names = {
-            0: 'A',
-            1: 'B',
-            2: 'C',
-            3: 'D',
-            4: 'E',
+            0: "A",
+            1: "B",
+            2: "C",
+            3: "D",
+            4: "E",
         }
 
         net.assign_names(node_names)
@@ -397,21 +399,21 @@ Edges: (5):
         self.assertEqual({1, 4}, net_bi.neigh(3))
         self.assertEqual({3}, net_bi.neigh(4))
 
-        self.assertEqual('A', net_bi.get_name_by_id(0))
-        self.assertEqual('B', net_bi.get_name_by_id(1))
-        self.assertEqual('D', net_bi.get_name_by_id(3))
-        self.assertEqual('E', net_bi.get_name_by_id(4))
+        self.assertEqual("A", net_bi.get_name_by_id(0))
+        self.assertEqual("B", net_bi.get_name_by_id(1))
+        self.assertEqual("D", net_bi.get_name_by_id(3))
+        self.assertEqual("E", net_bi.get_name_by_id(4))
 
-        self.assertEqual(0, net_bi.get_id_by_name('A'))
-        self.assertEqual(1, net_bi.get_id_by_name('B'))
-        self.assertEqual(3, net_bi.get_id_by_name('D'))
-        self.assertEqual(4, net_bi.get_id_by_name('E'))
+        self.assertEqual(0, net_bi.get_id_by_name("A"))
+        self.assertEqual(1, net_bi.get_id_by_name("B"))
+        self.assertEqual(3, net_bi.get_id_by_name("D"))
+        self.assertEqual(4, net_bi.get_id_by_name("E"))
 
         with self.assertRaises(KeyError):
             _ = net_bi.get_name_by_id(2)
 
         with self.assertRaises(KeyError):
-            _ = net_bi.get_id_by_name('C')
+            _ = net_bi.get_id_by_name("C")
 
     def test_extract_bidirectional_empty(self):
         uni = Topology("edges", edges=[[0, 1], [2, 1]])
@@ -431,35 +433,38 @@ Edges: (5):
 
     def test_copy_names_bigger(self):
         full = Topology("grid", size=3)
-        names_list = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I']
+        names_list = ["A", "B", "C", "D", "E", "F", "G", "H", "I"]
         names_dict = dict()
         for i in range(len(names_list)):
             names_dict[i] = names_list[i]
         full.assign_names(names_dict)
 
-        uni = Topology("edges", edges=[
-            [0, 1],
-            [0, 3],
-            [1, 0],
-            [1, 2],
-            [1, 4],
-            [3, 0],
-            [3, 4],
-            [3, 6],
-            [4, 1],
-            [4, 3],
-            [4, 5],
-            [4, 7],
-            [5, 2],
-            [5, 4],
-            [5, 8],
-            [6, 3],
-            [6, 7],
-            [7, 4],
-            [7, 6],
-            [7, 8],
-            [8, 7]
-        ])
+        uni = Topology(
+            "edges",
+            edges=[
+                [0, 1],
+                [0, 3],
+                [1, 0],
+                [1, 2],
+                [1, 4],
+                [3, 0],
+                [3, 4],
+                [3, 6],
+                [4, 1],
+                [4, 3],
+                [4, 5],
+                [4, 7],
+                [5, 2],
+                [5, 4],
+                [5, 8],
+                [6, 3],
+                [6, 7],
+                [7, 4],
+                [7, 6],
+                [7, 8],
+                [8, 7],
+            ],
+        )
 
         uni.copy_names(full)
 
@@ -469,7 +474,7 @@ Edges: (5):
         reduced = uni.extract_bidirectional()
 
         self.assertEqual(8, reduced.num_nodes)
-        names_list.remove('C')
+        names_list.remove("C")
         self.assertEqual(set(names_list), reduced.node_names)
 
     def test_nexthop_distance(self):
@@ -526,8 +531,8 @@ Edges: (5):
 
         edges = []
         for i in range(0, 5):
-            edges.append([i, i+1])
-            edges.append([i+1, i])
+            edges.append([i, i + 1])
+            edges.append([i + 1, i])
         edges.append([0, 5])
         self.assertEqual(5, Topology("edges", edges=edges).longest_path())
         edges.append([5, 0])
@@ -550,23 +555,32 @@ Edges: (5):
         self.assertEqual({(0, 1), (1, 2), (2, 3), (3, 0)}, net_uni.farthest_nodes())
 
     def test_all_paths(self):
-        net_grid = Topology('grid', size=3)
+        net_grid = Topology("grid", size=3)
 
         with self.assertRaises(KeyError):
             net_grid.all_paths(0, 9)
-        self.assertEqual([
-            [], [1, 4], [1, 2, 5, 4], [1, 2, 5, 8, 7, 4],
-            [1, 2, 5, 8, 7, 6], [1, 4, 5, 8, 7, 6], [1, 4, 7, 6],
-            [1, 2, 5, 4, 7, 6]], net_grid.all_paths(0, 3))
+        self.assertEqual(
+            [
+                [],
+                [1, 4],
+                [1, 2, 5, 4],
+                [1, 2, 5, 8, 7, 4],
+                [1, 2, 5, 8, 7, 6],
+                [1, 4, 5, 8, 7, 6],
+                [1, 4, 7, 6],
+                [1, 2, 5, 4, 7, 6],
+            ],
+            net_grid.all_paths(0, 3),
+        )
 
         self.assertEqual([[], [1, 4]], net_grid.all_paths(0, 3, 2))
 
-        self.assertEqual([
-            [], [1, 4], [1, 2, 5, 4], [1, 4, 7, 6]],
-            net_grid.all_paths(0, 3, 4))
+        self.assertEqual(
+            [[], [1, 4], [1, 2, 5, 4], [1, 4, 7, 6]], net_grid.all_paths(0, 3, 4)
+        )
 
         # 0 --> 1 --> 2
-        net_chain = Topology('edges', edges=[[1, 0], [2,1]])
+        net_chain = Topology("edges", edges=[[1, 0], [2, 1]])
         self.assertEqual([[1]], net_chain.all_paths(0, 2))
         self.assertEqual([], net_chain.all_paths(2, 0))
 
@@ -577,10 +591,10 @@ Edges: (5):
         self.assertTrue(Topology("chain", size=5).connected())
 
         self.assertFalse(Topology("edges", edges=[[1, 0]]).connected())
+        self.assertFalse(Topology("edges", edges=[[1, 0], [0, 1], [2, 1]]).connected())
         self.assertFalse(
-            Topology("edges", edges=[[1, 0], [0, 1], [2, 1]]).connected())
-        self.assertFalse(
-            Topology("edges", edges=[[1, 0], [0, 1], [3, 4], [4, 3]]).connected())
+            Topology("edges", edges=[[1, 0], [0, 1], [3, 4], [4, 3]]).connected()
+        )
 
     def test_change_weight(self):
         net = Topology("edges", edges=self.edges_test, default_weight=42)
@@ -599,7 +613,7 @@ Edges: (5):
 
     def test_change_all_weights(self):
         net = Topology("edges", edges=self.edges_test, default_weight=42)
-        for e,counter in zip(self.edges_test, range(len(self.edges_test))):
+        for e, counter in zip(self.edges_test, range(len(self.edges_test))):
             self.assertEqual(42, net.weight(e[1], e[0]))
             net.change_weight(e[1], e[0], counter)
 
@@ -610,24 +624,19 @@ Edges: (5):
     def test_spt_weights(self):
         #
         #    1 --> 2
-        #    ^     | 
+        #    ^     |
         #    |     v
         # 0 -+     3
         #    |     ^
         #    |     |
         #    +-----+
         #
-        edges = [
-            [1, 0],
-            [2, 1],
-            [3, 2],
-            [3, 0]
-        ]
+        edges = [[1, 0], [2, 1], [3, 2], [3, 0]]
         net = Topology("edges", edges=edges, default_weight=2)
 
         self.assertEqual(4, net.diameter())
-        self.assertEqual(4, net.longest_path()) # should be 6?
-        self.assertEqual(float('inf'), net.distance(1, 0))
+        self.assertEqual(4, net.longest_path())  # should be 6?
+        self.assertEqual(float("inf"), net.distance(1, 0))
         self.assertEqual(0, net.distance(0, 0))
         self.assertEqual(2, net.distance(0, 1))
         self.assertEqual(4, net.distance(0, 2))
@@ -636,7 +645,7 @@ Edges: (5):
         net.change_weight(1, 2, 100)
 
         self.assertEqual(102, net.diameter())
-        self.assertEqual(102, net.longest_path()) # should be 6?
+        self.assertEqual(102, net.longest_path())  # should be 6?
         self.assertEqual(0, net.distance(0, 0))
         self.assertEqual(2, net.distance(0, 1))
         self.assertEqual(102, net.distance(0, 2))
@@ -646,7 +655,7 @@ Edges: (5):
             net.change_weight(e[1], e[0], 1.5)
 
         self.assertEqual(3, net.diameter())
-        self.assertEqual(3, net.longest_path()) # should be 4.5?
+        self.assertEqual(3, net.longest_path())  # should be 4.5?
         self.assertEqual(0, net.distance(0, 0))
         self.assertEqual(1.5, net.distance(0, 1))
         self.assertEqual(3, net.distance(0, 2))
@@ -659,20 +668,12 @@ Edges: (5):
         self.assertEqual(4.5, net.distance(0, 3))
 
     def test_spt_external_weights(self):
-        net = Topology('edges', edges=[
-            [1, 0], [2, 1], [3, 2], [4, 3], [4, 5], [5, 0]
-        ])
+        net = Topology("edges", edges=[[1, 0], [2, 1], [3, 2], [4, 3], [4, 5], [5, 0]])
         (prev, dist) = net.spt(4)
         self.assertEqual(2, dist[0])
         self.assertEqual(5, prev[0])
 
-        weights = {
-            1: { 0: 1 },
-            2: { 1: 1 },
-            3: { 2: 1 },
-            4: { 3: 1, 5: 1},
-            5: { 0: 1}
-        }
+        weights = {1: {0: 1}, 2: {1: 1}, 3: {2: 1}, 4: {3: 1, 5: 1}, 5: {0: 1}}
         (prev, dist) = net.spt(4, weights=weights)
         self.assertEqual(2, dist[0])
         self.assertEqual(5, prev[0])
@@ -693,10 +694,10 @@ Edges: (5):
         self.assertEqual(5, prev[0])
 
     def test_minmax(self):
-        net = Topology('edges', edges=[
-            [1, 0], [2, 1], [3, 2], [4, 3], [5, 4], [5, 6], [6, 0]
-        ])
-        other = Topology('edges', edges=net.edges() + [[5, 1], [5, 2], [5, 3]])
+        net = Topology(
+            "edges", edges=[[1, 0], [2, 1], [3, 2], [4, 3], [5, 4], [5, 6], [6, 0]]
+        )
+        other = Topology("edges", edges=net.edges() + [[5, 1], [5, 2], [5, 3]])
 
         self.assertEqual([6], net.minmax(5, 0, other))
 
@@ -727,9 +728,11 @@ Edges: (5):
             net.minmax(100, 5, other)
 
     def test_minmax_ring(self):
-        net = Topology('ring', size=7)
-        other = Topology('edges', edges=net.edges() + \
-            [[5, 1], [1, 5], [5, 2], [2, 5], [5, 3], [3, 5]])
+        net = Topology("ring", size=7)
+        other = Topology(
+            "edges",
+            edges=net.edges() + [[5, 1], [1, 5], [5, 2], [2, 5], [5, 3], [3, 5]],
+        )
 
         self.assertEqual([], net.minmax(5, 4, other))
 
@@ -749,7 +752,7 @@ Edges: (5):
         self.assertEqual([2, 1, 0, 6], net.minmax(5, 3, other))
 
     def test_distance(self):
-        net = Topology('grid', size=2, default_weight=2)
+        net = Topology("grid", size=2, default_weight=2)
 
         self.assertEqual(2, net.distance(0, 1))
         self.assertEqual(4, net.distance(0, 3))
@@ -761,7 +764,7 @@ Edges: (5):
         self.assertEqual(3, net.distance(0, 1))
 
     def test_distance_path(self):
-        net = Topology('grid', size=3)
+        net = Topology("grid", size=3)
 
         net.change_weight(0, 1, 2)
         net.change_weight(1, 2, 3)
@@ -789,6 +792,7 @@ Edges: (5):
     def test_graphviz(self):
         Topology("grid", size=4).save_dot("mygraph")
 
+
 class TestTopographyDist(unittest.TestCase):
     def test_make_from_topology(self):
         net = Topology("ring", size=4)
@@ -799,8 +803,7 @@ class TestTopographyDist(unittest.TestCase):
         for e in edges:
             self.assertGreaterEqual(topo.distance(e[0], e[1]), 5)
             self.assertLessEqual(topo.distance(e[0], e[1]), 10)
-            self.assertEqual(topo.distance(e[0], e[1]),
-                             topo.distance(e[1], e[0]))
+            self.assertEqual(topo.distance(e[0], e[1]), topo.distance(e[1], e[0]))
             different_elems.add(topo.distance(e[0], e[1]))
             different_elems.add(topo.distance(e[1], e[0]))
 
@@ -816,7 +819,7 @@ class TestTopographyDist(unittest.TestCase):
             topo.distance(20, 10)
 
     def test_update_topology(self):
-        net = Topology('grid', size=2, default_weight=2)
+        net = Topology("grid", size=2, default_weight=2)
         self.assertEqual(4, net.distance(0, 3))
 
         topo = TopographyDist.make_from_topology(net, 10, 10)
@@ -833,36 +836,39 @@ class TestTopographyDist(unittest.TestCase):
         self.assertEqual(0.2, net.distance(0, 3))
 
         # topology has edges unknown to topography: NOK
-        net_another = Topology('grid', size=3)
+        net_another = Topology("grid", size=3)
         with self.assertRaises(KeyError):
             topo_another.update_topology(net_another)
+
 
 class TestTopography2D(unittest.TestCase):
     def test_invalid_ctor(self):
         with self.assertRaises(ValueError):
-            Topography2D('notexisting')
+            Topography2D("notexisting")
 
     def test_disc(self):
         with self.assertRaises(ValueError):
-            Topography2D('disc', nodes=-1)
+            Topography2D("disc", nodes=-1)
         with self.assertRaises(ValueError):
-            Topography2D('disc', nodes=2, size=-1)
+            Topography2D("disc", nodes=2, size=-1)
 
         # threshold very high: no disconnected nodes
-        topo_connected = Topography2D('disc', nodes=10, size=1, threshold=2)
+        topo_connected = Topography2D("disc", nodes=10, size=1, threshold=2)
 
         for u in range(10):
             for v in range(10):
                 self.assertLessEqual(topo_connected.distance(u, v), 2)
-                self.assertLessEqual(topo_connected.distance(u, v),
-                                    topo_connected.distance(v, u))
+                self.assertLessEqual(
+                    topo_connected.distance(u, v), topo_connected.distance(v, u)
+                )
                 u_pos = topo_connected[u]
                 v_pos = topo_connected[v]
-                expected_dist_sq = \
-                    (u_pos[0] - v_pos[0]) ** 2 + \
-                    (u_pos[1] - v_pos[1]) ** 2
-                self.assertAlmostEqual(expected_dist_sq,
-                                       topo_connected.distance(u, v) ** 2)
+                expected_dist_sq = (u_pos[0] - v_pos[0]) ** 2 + (
+                    u_pos[1] - v_pos[1]
+                ) ** 2
+                self.assertAlmostEqual(
+                    expected_dist_sq, topo_connected.distance(u, v) ** 2
+                )
         self.assertEqual(90, len(topo_connected.edges()))
         self.assertEqual(0, len(topo_connected.orphans()))
 
@@ -873,7 +879,7 @@ class TestTopography2D(unittest.TestCase):
             topo_connected[11]
 
         # threshold very low: all nodes are disconnected
-        topo_disconnected = Topography2D('disc', nodes=10, size=1, threshold=0)
+        topo_disconnected = Topography2D("disc", nodes=10, size=1, threshold=0)
         self.assertEqual(0, len(topo_disconnected.edges()))
         self.assertEqual(set(list(range(10))), topo_disconnected.orphans())
 
@@ -886,12 +892,12 @@ class TestTopography2D(unittest.TestCase):
                         topo_disconnected.distance(u, v)
 
         # intermediate threshold: some nodes may be disconnected
-        topo_mix = Topography2D('disc', nodes=100, size=1, threshold=0.1)
+        topo_mix = Topography2D("disc", nodes=100, size=1, threshold=0.1)
         for e in topo_mix.edges():
             self.assertLessEqual(topo_mix.distance(e[0], e[1]), 0.1)
 
     def test_square(self):
-        topo = Topography2D('square', nodes=100, size=1, threshold=1.41422)
+        topo = Topography2D("square", nodes=100, size=1, threshold=1.41422)
         self.assertEqual(0, len(topo.orphans()))
         greater_than_one = []
         for e in topo.edges():
@@ -901,11 +907,12 @@ class TestTopography2D(unittest.TestCase):
         self.assertGreater(len(greater_than_one), 0)
 
     def test_export(self):
-        topo = Topography2D('disc', nodes=10, size=1, threshold=1)
+        topo = Topography2D("disc", nodes=10, size=1, threshold=1)
         with TestDirectory() as testdir:
             topo.export(testdir + "/nodes.dat", testdir + "/edges.dat")
             self.assertTrue(os.path.exists(testdir + "/nodes.dat"))
             self.assertTrue(os.path.exists(testdir + "/edges.dat"))
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

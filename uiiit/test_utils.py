@@ -1,4 +1,4 @@
-__author__  = "Claudio Cicconetti"
+__author__ = "Claudio Cicconetti"
 __version__ = "0.1.0"
 __license__ = "MIT"
 
@@ -14,24 +14,28 @@ from random import uniform
 
 from utils import SocketParallerRunner, ParallerRunner, SocketCollector, SocketSender
 
+
 def func_get_sum(arg):
     sleep(uniform(0, 0.2))
     return arg[0] + arg[1]
+
 
 def func_get_pid(arg):
     sleep(1)
     return os.getpid()
 
+
 def func_get_big(arg):
     sleep(uniform(0, 0.2))
-    return [x for x in range(2**20)]
+    return [x for x in range(2 ** 20)]
+
 
 class TestUtils(unittest.TestCase):
     def test_parallel_runner(self):
         args = []
         expected = set()
         for i in range(50):
-            args.append([i, i+1])
+            args.append([i, i + 1])
             expected.add(2 * i + 1)
         ret = ParallerRunner.run(10, func_get_sum, args)
 
@@ -64,9 +68,9 @@ class TestUtils(unittest.TestCase):
 
     def test_socket_parallel_runner(self):
         logging.basicConfig(level=logging.INFO)
-        expected_item = [x for x in range(2**20)]
+        expected_item = [x for x in range(2 ** 20)]
         args = [None for _ in range(50)]
-        spr = SocketParallerRunner('localhost', 21001)
+        spr = SocketParallerRunner("localhost", 21001)
         ret = spr.run(10, func_get_big, args)
 
         self.assertEqual(50, len(ret))
@@ -76,19 +80,19 @@ class TestUtils(unittest.TestCase):
     @unittest.skip
     def test_socket_collector(self):
         logging.basicConfig(level=logging.INFO)
-        collector = SocketCollector('localhost', 21001)
+        collector = SocketCollector("localhost", 21001)
 
         num_expected = 10
         collector.collect(num_expected)
 
     @unittest.skip
     def test_socket_sender(self):
-        sender = SocketSender('localhost', 21001)
+        sender = SocketSender("localhost", 21001)
 
-        big_msg = [x for x in range(2**20)]
-        
+        big_msg = [x for x in range(2 ** 20)]
+
         for i in range(10):
-            logging.info(f'Sending message #{i}')
+            logging.info(f"Sending message #{i}")
             sender.send(big_msg)
 
     @unittest.skip
@@ -97,7 +101,7 @@ class TestUtils(unittest.TestCase):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
         try:
-            s.bind(('localhost', 21001))
+            s.bind(("localhost", 21001))
             s.listen()
 
             while True:
@@ -111,21 +115,21 @@ class TestUtils(unittest.TestCase):
                     if not hdr:
                         clientsocket.close()
                         break
-                    
-                    msg_len = int.from_bytes(hdr, byteorder='big', signed=False)
-                    print(f'Received header of a message with size {msg_len}')
 
-                    buf = b''
+                    msg_len = int.from_bytes(hdr, byteorder="big", signed=False)
+                    print(f"Received header of a message with size {msg_len}")
+
+                    buf = b""
                     total = 0
 
                     while total != msg_len:
                         msg = clientsocket.recv(msg_len - total)
-                        print(f'Received message chunk of size {len(msg)}')
+                        print(f"Received message chunk of size {len(msg)}")
                         buf += msg
                         total += len(msg)
-                    
+
                     assert len(buf) == msg_len
-                    print(f'Full message of size {  msg_len} received')
+                    print(f"Full message of size {  msg_len} received")
 
                     obj = pickle.loads(buf)
                     assert obj == expected
@@ -136,7 +140,7 @@ class TestUtils(unittest.TestCase):
     @unittest.skip
     def test_socket_client(self):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect(('localhost', 21001))
+        s.connect(("localhost", 21001))
 
         big_msg = [x for x in range(100000)]
 
@@ -145,7 +149,7 @@ class TestUtils(unittest.TestCase):
 
                 big_msg_ser = pickle.dumps(big_msg)
 
-                hdr = int.to_bytes(len(big_msg_ser), 4, byteorder='big', signed=False)
+                hdr = int.to_bytes(len(big_msg_ser), 4, byteorder="big", signed=False)
 
                 print(f"sending message of size 4+{len(big_msg_ser)} bytes")
                 sent = s.send(hdr + big_msg_ser)
@@ -156,5 +160,6 @@ class TestUtils(unittest.TestCase):
         finally:
             s.close()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

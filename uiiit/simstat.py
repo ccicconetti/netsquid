@@ -13,10 +13,12 @@ __all__ = [
     "Conf",
     "Stat",
     "MultiStat",
-    ]
+]
+
 
 class Conf:
     """Experiment configuration."""
+
     def __init__(self, **kwargs):
         self._params = kwargs
 
@@ -28,7 +30,7 @@ class Conf:
 
     def change_param(self, key, value):
         self._params[key] = value
-    
+
     def del_param(self, key):
         try:
             del self._params[key]
@@ -41,16 +43,23 @@ class Conf:
     def match(self, **kwargs):
         for k, v in kwargs.items():
             if k not in self._params:
-                raise KeyError(f'Invalid parameter: {k}')
+                raise KeyError(f"Invalid parameter: {k}")
             if self._params[k] != v:
                 return False
         return True
 
     def compact(self, keys=None):
-        return '.'.join([f'{k}={v}' for k, v in sorted(self._params.items()) if keys is None or k in keys])
+        return ".".join(
+            [
+                f"{k}={v}"
+                for k, v in sorted(self._params.items())
+                if keys is None or k in keys
+            ]
+        )
 
     def __repr__(self):
-        return ', '.join([f'{k}: {v}' for k, v in sorted(self._params.items())])
+        return ", ".join([f"{k}: {v}" for k, v in sorted(self._params.items())])
+
 
 class Stat:
     """A simple class holding count/point metrics. An object of this class
@@ -61,7 +70,7 @@ class Stat:
     ----------
     conf : `Conf`
         The configuration identifying this statistics object.
-    
+
     """
 
     def __init__(self, conf=None):
@@ -98,7 +107,7 @@ class Stat:
         """Change/add the value of a parameter."""
 
         self._conf.change_param(key, value)
-    
+
     def del_param(self, key):
         """Remove a parameter. Ignore if it does not exist."""
 
@@ -109,7 +118,7 @@ class Stat:
             return self._counts[metric][0]
         elif metric in self._points:
             return sum(self._points[metric])
-        raise KeyError(f'Unknown metric {metric}')
+        raise KeyError(f"Unknown metric {metric}")
 
     def get_count(self, metric):
         if metric in self._counts:
@@ -123,7 +132,7 @@ class Stat:
             return self._counts[metric][0] / self._counts[metric][1]
         elif metric in self._points:
             return sum(self._points[metric]) / len(self._points[metric])
-        raise KeyError(f'Unknown metric {metric}')
+        raise KeyError(f"Unknown metric {metric}")
 
     def get_avg_ci(self, metric):
         if metric in self._points:
@@ -139,7 +148,7 @@ class Stat:
             return self._counts[metric][0]
         elif metric in self._points:
             return self._points[metric]
-        raise KeyError(f'Unknown metric {metric}')
+        raise KeyError(f"Unknown metric {metric}")
 
     def count_metrics(self):
         """Return all the count metrics."""
@@ -153,7 +162,7 @@ class Stat:
 
     def count(self, metric, value):
         if metric in self._points:
-            raise KeyError(f'Metric {metric} already used')
+            raise KeyError(f"Metric {metric} already used")
         if metric not in self._counts:
             self._counts[metric] = [0, 0]
         record = self._counts[metric]
@@ -162,7 +171,7 @@ class Stat:
 
     def add(self, metric, value):
         if metric in self._counts:
-            raise KeyError(f'Metric {metric} already used')
+            raise KeyError(f"Metric {metric} already used")
         if metric not in self._points:
             self._points[metric] = []
         self._points[metric].append(value)
@@ -176,7 +185,7 @@ class Stat:
             The metric name
         value : float
             The scale factor to apply
-        
+
         """
 
         if metric in self._counts:
@@ -184,16 +193,16 @@ class Stat:
         elif metric in self._points:
             self._points[metric] = [x * value for x in self._points[metric]]
         else:
-            raise KeyError(f'Unknown metric: {metric}')
+            raise KeyError(f"Unknown metric: {metric}")
 
     def content_dump(self):
-      """Return the content of this object, e.g., for serialization."""
+        """Return the content of this object, e.g., for serialization."""
 
-      return {
-          'conf' : self._conf.all_params(),
-          'points' : self._points,
-          'counts' : self._counts,
-          }
+        return {
+            "conf": self._conf.all_params(),
+            "points": self._points,
+            "counts": self._counts,
+        }
 
     @staticmethod
     def make_from_content(params, points, counts):
@@ -207,7 +216,7 @@ class Stat:
 
     def export(self, path, parameters=None):
         """Export the content to a set of files in the given path.
-        
+
         Parameters
         ----------
         path : str
@@ -215,21 +224,21 @@ class Stat:
         parameters : list, optional
             The list of parameters to use for the file name.
             If empty then use all.
-        
+
         """
 
         base_name = self._conf.compact(parameters)
         if base_name:
-            base_name += '.'
+            base_name += "."
 
         for metric_name, record in self._counts.items():
-            with open(f'{path}/{base_name}{metric_name}.dat', 'w') as outfile:
-                outfile.write(f'{record[0]} {record[1]}\n')
+            with open(f"{path}/{base_name}{metric_name}.dat", "w") as outfile:
+                outfile.write(f"{record[0]} {record[1]}\n")
 
         for metric_name, values in self._points.items():
-            with open(f'{path}/{base_name}{metric_name}.dat', 'w') as outfile:
+            with open(f"{path}/{base_name}{metric_name}.dat", "w") as outfile:
                 for value in values:
-                    outfile.write(f'{value}\n')
+                    outfile.write(f"{value}\n")
 
     def merge(self, regex, outname):
         """Merge all the values of a number of metrics into a new one.
@@ -247,18 +256,18 @@ class Stat:
         -------
         `Stat`
             This object.
-        
+
         Raises
         ------
         KeyError
             If `regex` matches a mix of point and count metrics.
         ValueError
             If `outname` already exists.
-        
+
         """
 
         if outname in self:
-            raise ValueError(f'Cannot overwrite metric: {outname}')
+            raise ValueError(f"Cannot overwrite metric: {outname}")
 
         newrecord = None
         for metric, record in self._counts.items():
@@ -267,14 +276,14 @@ class Stat:
                     newrecord = [0, 0]
                 newrecord[0] += record[0]
                 newrecord[1] += record[1]
-        
+
         newpoints = []
         for metric, values in self._points.items():
             if re.match(regex, metric):
                 newpoints += values
 
         if newrecord is not None and newpoints:
-            raise KeyError(f'Regex matches both count and point metrics: {regex}')
+            raise KeyError(f"Regex matches both count and point metrics: {regex}")
 
         if newrecord is not None:
             self._counts[outname] = newrecord
@@ -309,9 +318,9 @@ class Stat:
 
         """
 
-        newmetric = f'{metric}-avg' if name is None else name
+        newmetric = f"{metric}-avg" if name is None else name
         if newmetric in self:
-            raise ValueError(f'Cannot overwrite existing metric: {newmetric}')
+            raise ValueError(f"Cannot overwrite existing metric: {newmetric}")
 
         self.count(newmetric, self.get_avg(metric))
 
@@ -319,7 +328,7 @@ class Stat:
 
     def print(self, metrics=None):
         """Print the content to human-readable format.
-        
+
         Parameters
         ----------
         metrics : None or iterable
@@ -333,10 +342,10 @@ class Stat:
             if metrics is None or metric in metrics:
                 print(f"{metric} = {[f'{x:.3f}' for x in values]}")
 
-class MultiStat:
-    """A collection of Stat objects that can be serialized/deserialized.
 
-    """
+class MultiStat:
+    """A collection of Stat objects that can be serialized/deserialized."""
+
     def __init__(self, initial=None):
         self._stats = dict()
         if initial:
@@ -347,7 +356,7 @@ class MultiStat:
         """Add a `Stat` object to the collection doing nothing if present."""
 
         if not isinstance(stat, Stat):
-            raise TypeError('Expected a Stat object when calling _add_single()')
+            raise TypeError("Expected a Stat object when calling _add_single()")
 
         key = str(stat)
         if key in self._stats:
@@ -357,21 +366,21 @@ class MultiStat:
 
     def add(self, stats):
         """Add one or more `Stat` objects to the collection.
-        
+
         Do nothing if any of them are already present.
 
         Parameters
         ----------
         stats : `Stat` or list of `Stat` objects
             The item to add to the collection.
-        
+
         Returns
         -------
         True if at least one object has been added, False otherwise.
 
         """
 
-        if hasattr(stats, '__iter__'):
+        if hasattr(stats, "__iter__"):
             ret = False
             for stat in stats:
                 ret |= self._add_single(stat)
@@ -386,7 +395,7 @@ class MultiStat:
         ----------
         conf : `Conf`
             The configuration for which the caller wishes to retrieve the `Stat`.
-        
+
         Returns
         -------
         The `Stat` object associated to the given `Conf`, if any.
@@ -395,7 +404,7 @@ class MultiStat:
         ------
         KeyError
             If there are no statistics associated to the given `Conf`.
-        
+
         """
 
         return self._stats[str(conf)]
@@ -447,7 +456,7 @@ class MultiStat:
     def json_dump_to_file(self, path):
         """Serialize the content of the collection to a file. Convenience wrapper of `json_dump`."""
 
-        with open(path, 'w') as outfile:
+        with open(path, "w") as outfile:
             self.json_dump(outfile)
 
     def filter(self, **kwargs):
@@ -472,7 +481,7 @@ class MultiStat:
             Name of the parameter to look for.
         regex : str
             The regular expression to match the value.
-        
+
         """
 
         to_remove = []
@@ -485,7 +494,7 @@ class MultiStat:
 
     def param_values(self, param):
         """Return all the values for the given parameter.
-        
+
         Raises
         ------
         KeyError
@@ -511,10 +520,13 @@ class MultiStat:
 
         mstat = MultiStat()
         for content in json.load(fp):
-            mstat.add(Stat.make_from_content(
-                params=content['conf'],
-                points=content['points'],
-                counts=content['counts']))
+            mstat.add(
+                Stat.make_from_content(
+                    params=content["conf"],
+                    points=content["points"],
+                    counts=content["counts"],
+                )
+            )
         return mstat
 
     @staticmethod
@@ -522,7 +534,7 @@ class MultiStat:
         """Deserialize from a given file. Convenience wrapper of `json_load`.
 
         If `path` does not exist then an empty `MultiStat` is returned.
-        
+
         Parameters
         ----------
         path : str
@@ -534,7 +546,7 @@ class MultiStat:
         """
 
         try:
-            with open(path, 'r') as infile:
+            with open(path, "r") as infile:
                 return MultiStat.json_load(infile)
         except FileNotFoundError:
             return MultiStat()
@@ -563,7 +575,7 @@ class MultiStat:
         """Print all the `Stat` objects in a human-readable manner."""
 
         for stat in self._stats.values():
-            print(f'** {stat}')
+            print(f"** {stat}")
             stat.print()
 
     def single_factor_export(self, factor, path):
@@ -587,13 +599,13 @@ class MultiStat:
         for metric, per_metric in data.items():
             for mangle, per_mangle in per_metric.items():
                 if not mangle:
-                    basename = ''
+                    basename = ""
                 else:
-                    basename = f'{mangle}.'
-                with open(path + f'/{basename}{metric}.dat', 'w') as outfile:
+                    basename = f"{mangle}."
+                with open(path + f"/{basename}{metric}.dat", "w") as outfile:
                     for factor_value in sorted(per_mangle.keys()):
                         (avg, ci) = per_mangle[factor_value]
-                        outfile.write(f'{factor_value} {avg} {ci}\n')
+                        outfile.write(f"{factor_value} {avg} {ci}\n")
 
     def single_factor_data(self, factor):
         variable_params = set(self._variable_params())
@@ -616,7 +628,7 @@ class MultiStat:
     def _create_dir(path):
         if os.path.exists(path):
             if not os.path.isdir(path):
-                raise FileExistsError(f'Path {path} exists but it is not a directory')
+                raise FileExistsError(f"Path {path} exists but it is not a directory")
         else:
             os.mkdir(path)
 
@@ -639,12 +651,16 @@ class MultiStat:
                 variable_params.append(param)
         return variable_params
 
+
 def plot_all(x_values, xlabel, stats, metrics, block=False):
     if len(x_values) != len(stats):
-        raise ValueError('Inconsistent sizes')
+        raise ValueError("Inconsistent sizes")
 
-    all_metrics = metrics if metrics \
+    all_metrics = (
+        metrics
+        if metrics
         else sorted(list(stats[0].count_metrics()) + list(stats[0].point_metrics()))
+    )
 
     nplots = len(all_metrics)
 
@@ -667,11 +683,12 @@ def plot_all(x_values, xlabel, stats, metrics, block=False):
     fig.tight_layout()
     plt.show(block=block)
 
+
 def plot_all_same(x_values, xlabel, ylabel, stats, metrics, block=False):
     if not metrics:
-        raise ValueError('Empty set of metrics to plot')
+        raise ValueError("Empty set of metrics to plot")
     if len(x_values) != len(stats):
-        raise ValueError('Inconsistent sizes')
+        raise ValueError("Inconsistent sizes")
 
     _, ax = plt.subplots()
 
@@ -683,9 +700,10 @@ def plot_all_same(x_values, xlabel, ylabel, stats, metrics, block=False):
     else:
         plot_multi(x_values, xlabel, ylabel, stats, metrics, ax)
 
-    plt.legend(loc='best')
+    plt.legend(loc="best")
 
     plt.show(block=block)
+
 
 def plot_multi(x_values, xlabel, ylabel, stats, metrics, ax):
     ax.set(xlabel=xlabel, ylabel=ylabel)
@@ -695,7 +713,7 @@ def plot_multi(x_values, xlabel, ylabel, stats, metrics, ax):
         x_values_with_points = []
         y_values = []
         e_values = []
-        for stat,x_value in zip(stats, x_values):
+        for stat, x_value in zip(stats, x_values):
             if metric not in stat.point_metrics():
                 continue
             x_values_with_points.append(x_value)
@@ -707,17 +725,26 @@ def plot_multi(x_values, xlabel, ylabel, stats, metrics, ax):
             else:
                 e_values.append(0)
 
-        ax.errorbar(x_values_with_points, y_values, e_values, marker='x', label=metric, capsize=5)
+        ax.errorbar(
+            x_values_with_points,
+            y_values,
+            e_values,
+            marker="x",
+            label=metric,
+            capsize=5,
+        )
+
 
 def plot_single(x_values, xlabel, stats, metric, func, ax):
     ax.set(xlabel=xlabel, ylabel=metric)
     ax.grid()
 
-    y_values = [] 
+    y_values = []
     for stat in stats:
         y_values.append(func(stat, metric))
 
-    ax.plot(x_values, y_values, marker='x', label=metric)
+    ax.plot(x_values, y_values, marker="x", label=metric)
+
 
 def boxplot_single(x_values, xlabel, stats, metric, ax):
     ax.set(xlabel=xlabel, ylabel=metric)
@@ -725,12 +752,12 @@ def boxplot_single(x_values, xlabel, stats, metric, ax):
 
     y_values = []
     x_values_with_points = []
-    avg_values = [] 
+    avg_values = []
     for stat, x_value in zip(stats, x_values):
         if metric in stat.point_metrics():
             y_values.append(stat.get_all(metric))
             x_values_with_points.append(x_value)
             avg_values.append(stat.get_avg(metric))
 
-    ax.boxplot(y_values, positions=x_values_with_points, notch=1, sym='k+')
+    ax.boxplot(y_values, positions=x_values_with_points, notch=1, sym="k+")
     ax.plot(x_values_with_points, avg_values, label=metric)

@@ -7,18 +7,19 @@ from math import exp
 import netsquid as ns
 from utils import print_dm, print_dm_single
 
+
 def single_run(seed, apply_noise):
     ns.set_random_state(seed=seed)
 
     # we create three qubits with the goal of teleporting
     # the first one into the third one
 
-    q = ns.qubits.create_qubits(3, system_name='q', no_state=False)
+    q = ns.qubits.create_qubits(3, system_name="q", no_state=False)
 
     # apply noise (if needed)
     if apply_noise:
         prob = ns.qubits.delay_depolarize(q[2], depolar_rate=1e7, delay=20)
-        logging.info(f'depolarized with probability {prob:.2f}')
+        logging.info(f"depolarized with probability {prob:.2f}")
 
     # first qubit in state
     #  |0> + i|1>
@@ -61,25 +62,27 @@ def single_run(seed, apply_noise):
     else:
         # Check exact comparison
         if to_be_teleported_dm.all() == teleported_dm.all():
-            logging.info('teleport was successful')
+            logging.info("teleport was successful")
             return 1
         else:
-            logging.info('teleport has failed')
+            logging.info("teleport has failed")
             return 0
+
 
 labels_z = ("|0>", "|1>")
 apply_noise = True
 num_runs = 1000
 logging.basicConfig(level=logging.WARNING)
 depol_rate = 1e7
-depol_delay = 20 # ns
-expected_depol_prob = 1 - exp(-depol_delay * 1e-9 * depol_rate )
+depol_delay = 20  # ns
+expected_depol_prob = 1 - exp(-depol_delay * 1e-9 * depol_rate)
 
 sum = 0
 for run in range(num_runs):
     sum += single_run(run, apply_noise)
 
-print('avg fidelity over {} runs is {:.2f}, depolarization prob was {:.2f}'.format(
-    num_runs,
-    sum / num_runs,
-    expected_depol_prob))
+print(
+    "avg fidelity over {} runs is {:.2f}, depolarization prob was {:.2f}".format(
+        num_runs, sum / num_runs, expected_depol_prob
+    )
+)

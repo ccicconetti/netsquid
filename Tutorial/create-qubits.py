@@ -8,7 +8,7 @@ utils.print_dm_all(qubits)
 
 # create a Bell Pair b_00
 ns.qubits.operate(qubits[0], ns.H)
-ns.qubits.operate([qubits[0],qubits[1]], ns.CX)
+ns.qubits.operate([qubits[0], qubits[1]], ns.CX)
 
 # the first bit can be 0 or 1 in the computational basis
 res0 = ns.qubits.measure(qubits[0], observable=ns.Z)

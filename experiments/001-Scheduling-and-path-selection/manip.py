@@ -12,21 +12,23 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument("statfile", help="The file to read.")
-    parser.add_argument("--remove", default="",
-                        help="Remove the simulations with key=value")
-    parser.add_argument("--outfile", default="",
-                        help="Output file. If empty overwrite the input.")
+    parser.add_argument(
+        "--remove", default="", help="Remove the simulations with key=value"
+    )
+    parser.add_argument(
+        "--outfile", default="", help="Output file. If empty overwrite the input."
+    )
     args = parser.parse_args()
 
     mstat = MultiStat.json_load_from_file(args.statfile)
 
     if len(mstat) == 0:
-        raise RuntimeError(f'No simulation results found in {args.statfile}')
+        raise RuntimeError(f"No simulation results found in {args.statfile}")
 
     if args.remove:
-        key, value = args.remove.split('=')
+        key, value = args.remove.split("=")
         if not key or not value:
-            raise RuntimeError(f'Invalid key=value pair to remove: {args.remove}')
+            raise RuntimeError(f"Invalid key=value pair to remove: {args.remove}")
         mstat.remove(key, value)
 
         if args.outfile:

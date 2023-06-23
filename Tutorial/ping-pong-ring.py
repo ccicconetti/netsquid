@@ -34,13 +34,14 @@ from netsquid.components.qchannel import QuantumChannel
 from netsquid.components.qmemory import QuantumMemory
 from netsquid.components.models.delaymodels import FibreDelayModel
 
+
 class RingNode(pydynaa.Entity):
     length = 2e-3  # channel length [km]
     counter = 0
     evtype_newqubit = pydynaa.EventType("Create a new qubit and send it out", "")
 
     def __init__(self):
-        self.name = f'RingNode#{self.counter}'
+        self.name = f"RingNode#{self.counter}"
         RingNode.counter += 1
 
         # Set to True only on the first node sending the qubit
@@ -48,24 +49,31 @@ class RingNode(pydynaa.Entity):
 
         # Create a memory and a quantum channel
         self.qmemory = QuantumMemory("NodeMemory", num_positions=1)
-        self.qchannel = QuantumChannel("NodeChannel", length=self.length,
-                                       models={"delay_model": FibreDelayModel()})
+        self.qchannel = QuantumChannel(
+            "NodeChannel", length=self.length, models={"delay_model": FibreDelayModel()}
+        )
         # Link output from qmemory (pop) to input of channel
         self.qmemory.ports["qout"].connect(self.qchannel.ports["send"])
         # Setup callback function to handle input on quantum memory port "qin0"
-        self._wait(pydynaa.EventHandler(self._handle_input_qubit),
-                   entity=self.qmemory.ports["qin0"], event_type=Port.evtype_input)
+        self._wait(
+            pydynaa.EventHandler(self._handle_input_qubit),
+            entity=self.qmemory.ports["qin0"],
+            event_type=Port.evtype_input,
+        )
         self.qmemory.ports["qin0"].notify_all_input = True
         # Wait for a new-qubit event
-        self._wait(pydynaa.EventHandler(self._start),
-                   entity=self, event_type=RingNode.evtype_newqubit)
+        self._wait(
+            pydynaa.EventHandler(self._start),
+            entity=self,
+            event_type=RingNode.evtype_newqubit,
+        )
 
     def _start(self, event):
         print(f"{ns.sim_time():.1f}: {self.name} qubit transmitted")
 
         # Send out the qubit from this node
         self.am_i_last = True
-        qubit, = ns.qubits.create_qubits(1)
+        (qubit,) = ns.qubits.create_qubits(1)
         self.qchannel.send(qubit)
 
     def schedule_qubits(self, event_times):
@@ -83,8 +91,10 @@ class RingNode(pydynaa.Entity):
         if self.am_i_last or random.random() > 0.5:
             [m], [prob] = self.qmemory.measure(positions=[0], observable=ns.X)
             labels_x = ("|+>", "|->")
-            print(f"{ns.sim_time():.1f}: {self.name} qubit measured "
-                  f"{labels_x[m]} with probability {prob:.2f}")
+            print(
+                f"{ns.sim_time():.1f}: {self.name} qubit measured "
+                f"{labels_x[m]} with probability {prob:.2f}"
+            )
         else:
             print(f"{ns.sim_time():.1f}: {self.name} qubit not measured")
 
@@ -93,6 +103,7 @@ class RingNode(pydynaa.Entity):
             self.qmemory.pop(positions=[0])
         else:
             self.am_i_last = False
+
 
 # Configuration
 seed = 42
@@ -107,12 +118,12 @@ for i in range(num_nodes):
     nodes.append(RingNode())
 
 for i in range(num_nodes):
-    next_node = i+1 if (i+1) < num_nodes else 0
+    next_node = i + 1 if (i + 1) < num_nodes else 0
     nodes[i].connect_to_next_node(nodes[next_node])
 
 random.seed(seed)
 for i in range(num_rounds):
-    nodes[random.randint(0, num_nodes-1)].schedule_qubits([i * round_duration])
+    nodes[random.randint(0, num_nodes - 1)].schedule_qubits([i * round_duration])
 
 ns.set_random_state(seed=seed)
 stats = ns.sim_run()

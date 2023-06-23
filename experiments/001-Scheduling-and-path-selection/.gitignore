@@ -1,0 +1,8 @@
+graphs/*.pdf
+*.json
+results-calibration
+results-disc
+results-disc-lenrate
+results-grid
+results-gridmp
+results-gridmpvar

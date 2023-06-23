@@ -12,10 +12,10 @@ from run_simulation import run_simulation
 __all__ = []
 
 if __name__ == "__main__":
-    statfile = ''
+    statfile = ""
 
     logging.basicConfig(level=logging.INFO)
-    statfile = "first_calibration.json" # if empty prints to screen
+    statfile = "first_calibration.json"  # if empty prints to screen
     timeslots = 100
     nworkers = 10
 
@@ -24,19 +24,21 @@ if __name__ == "__main__":
     mstat = MultiStat() if not statfile else MultiStat.json_load_from_file(statfile)
 
     common_conf = {
-        'topology': "chain",
-        'app': "const-farthest",
-        'algorithm': "spf-hops",
-        'cardinality': 1,
-        'node_distance_delta': 0,  # random fraction of node_distance, ibidem
-        'size': None,              # km, used only with random topology
-        'threshold': None,         # km, used only with random topology
-        'timeslots': timeslots, 'seed': 42,
-        'p_loss_init': 0.,'p_loss_length':0.,
-        'gate_duration': 10, # ns
+        "topology": "chain",
+        "app": "const-farthest",
+        "algorithm": "spf-hops",
+        "cardinality": 1,
+        "node_distance_delta": 0,  # random fraction of node_distance, ibidem
+        "size": None,  # km, used only with random topology
+        "threshold": None,  # km, used only with random topology
+        "timeslots": timeslots,
+        "seed": 42,
+        "p_loss_init": 0.0,
+        "p_loss_length": 0.0,
+        "gate_duration": 10,  # ns
     }
 
-    total_length = 15 #km
+    total_length = 15  # km
     confs = []
     for depol_rate in [1e3, 1e4]:
         for dephase_rate in [1e5, 1e6, 1e7]:
@@ -48,7 +50,7 @@ if __name__ == "__main__":
                     dephase_rate=dephase_rate,
                     depol_rate=depol_rate
                 )
-                if conf not in mstat: # skip experiments already in the collection
+                if conf not in mstat:  # skip experiments already in the collection
                     confs.append(conf)
 
     for depol_rate in [1e3, 1e4]:
@@ -61,7 +63,7 @@ if __name__ == "__main__":
                     dephase_rate=dephase_rate,
                     depol_rate=depol_rate
                 )
-                if conf not in mstat: # skip experiments already in the collection
+                if conf not in mstat:  # skip experiments already in the collection
                     confs.append(conf)
 
     # Run the experiments in parallel with the number of workers specified.
@@ -69,11 +71,12 @@ if __name__ == "__main__":
         if len(confs) == 1:
             stats = [run_simulation(confs[0])]
         else:
-            stats = SocketParallerRunner('localhost', 21001).run(
-                nworkers, run_simulation, confs)
+            stats = SocketParallerRunner("localhost", 21001).run(
+                nworkers, run_simulation, confs
+            )
 
         if None in stats:
-            raise RuntimeError('Some experiments were not executed')
+            raise RuntimeError("Some experiments were not executed")
 
         # Dump the simulation data to the JSON file if specified, otherwise print.
         mstat.add(stats)

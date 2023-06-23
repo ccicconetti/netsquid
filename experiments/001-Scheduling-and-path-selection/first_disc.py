@@ -12,15 +12,15 @@ from run_simulation import run_simulation
 __all__ = []
 
 if __name__ == "__main__":
-    statfile = ''
+    statfile = ""
 
     logging.basicConfig(level=logging.INFO)
-    statfile = "first_disc.json" # if empty prints to screen
+    statfile = "first_disc.json"  # if empty prints to screen
     timeslots = 1000
     nworkers = 50
     disc_radius = 6
     threshold = 2
-    algos = ['spf-hops', 'minmax', 'always-skip', 'random-skip']
+    algos = ["spf-hops", "minmax", "always-skip", "random-skip"]
     num_runs = 200
     num_nodes = 25
     cardinalities = [1, 3, 5]
@@ -41,17 +41,19 @@ if __name__ == "__main__":
                         algorithm=algo,
                         cardinality=cardinality,
                         num_nodes=num_nodes,
-                        node_distance=None,       # km, unused with random topology
-                        node_distance_delta=None, # random fraction of node_distance, ibidem
-                        size=disc_radius,         # km, used only with random topology
-                        threshold=threshold,      # km, used only with random topology
-                        timeslots=timeslots, seed=seed,
-                        p_loss_init=0.1, p_loss_length=0.1,
-                        depol_rate=5e3,            # Hz
-                        dephase_rate=dephase_rate, # Hz
-                        gate_duration=10,          # ns
+                        node_distance=None,  # km, unused with random topology
+                        node_distance_delta=None,  # random fraction of node_distance, ibidem
+                        size=disc_radius,  # km, used only with random topology
+                        threshold=threshold,  # km, used only with random topology
+                        timeslots=timeslots,
+                        seed=seed,
+                        p_loss_init=0.1,
+                        p_loss_length=0.1,
+                        depol_rate=5e3,  # Hz
+                        dephase_rate=dephase_rate,  # Hz
+                        gate_duration=10,  # ns
                     )
-                    if conf not in mstat: # skip experiments already in the collection
+                    if conf not in mstat:  # skip experiments already in the collection
                         confs.append(conf)
 
     # Run the experiments in parallel with the number of workers specified.
@@ -59,11 +61,12 @@ if __name__ == "__main__":
         if len(confs) == 1:
             stats = [run_simulation(confs[0])]
         else:
-            stats = SocketParallerRunner('localhost', 21001).run(
-                nworkers, run_simulation, confs)
+            stats = SocketParallerRunner("localhost", 21001).run(
+                nworkers, run_simulation, confs
+            )
 
         if None in stats:
-            logging.warning('Some experiments were not executed')
+            logging.warning("Some experiments were not executed")
 
         # Dump the simulation data to the JSON file if specified, otherwise print.
         mstat.add([stat for stat in stats if stat is not None])

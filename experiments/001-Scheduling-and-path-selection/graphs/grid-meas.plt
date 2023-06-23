@@ -171,10 +171,8 @@ plot \
  '../results-gridmpvar/algorithm=always-skip.meas.dat' u 1:2 w l lt 1 notitle,\
  '../results-gridmpvar/algorithm=minmax.meas.dat' u 1:2 w l lt 1 notitle,\
  '../results-gridmpvar/algorithm=random-skip.meas.dat' u 1:2 w l lt 1 notitle,\
- '../results-gridmpvar/algorithm=spf-hops.meas.dat' u 1:2 w l lt 1 notitle,\
 \
  '../results-gridmpvar/algorithm=always-skip.meas.dat' u 1:2:3 w ye title "Best FIFO" pt 4 lt 1,\
  '../results-gridmpvar/algorithm=random-skip.meas.dat' u 1:2:3 w ye title "Random FIFO" pt 6 lt 1,\
- '../results-gridmpvar/algorithm=minmax.meas.dat' u 1:2:3 w ye title "Strict FIFO/MinMax" pt 8 lt 1,\
- '../results-gridmpvar/algorithm=spf-hops.meas.dat' u 1:2:3 w ye title "Strict FIFO/SPF" pt 10 lt 1
+ '../results-gridmpvar/algorithm=minmax.meas.dat' u 1:2:3 w ye title "Strict FIFO" pt 8 lt 1
 #    EOF

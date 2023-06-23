@@ -10,43 +10,52 @@ from netsquid.protocols import Protocol, Signals
 
 from uiiit.topology import Topology, EmptyTopology
 
-__all__ = [
-    "Oracle"
-    ]
+__all__ = ["Oracle"]
+
 
 class Oracle(Protocol):
     class Path:
-        def __init__(self, alice_name, bob_name,
-                     alice_edge_id, bob_edge_id,
-                     swap_nodes, timestamp,
-                     pair_id):
-            self.alice_name    = alice_name
-            self.bob_name      = bob_name
+        def __init__(
+            self,
+            alice_name,
+            bob_name,
+            alice_edge_id,
+            bob_edge_id,
+            swap_nodes,
+            timestamp,
+            pair_id,
+        ):
+            self.alice_name = alice_name
+            self.bob_name = bob_name
             self.alice_edge_id = alice_edge_id
-            self.bob_edge_id   = bob_edge_id
-            self.swap_nodes    = swap_nodes
-            self.timestamp     = timestamp
-            self.pair_id       = pair_id
+            self.bob_edge_id = bob_edge_id
+            self.swap_nodes = swap_nodes
+            self.timestamp = timestamp
+            self.pair_id = pair_id
 
         def __repr__(self):
-            return (f'path between {self.alice_name} ({self.alice_edge_id}) '
-                    f'and {self.bob_name} ({self.bob_edge_id}), '
-                    f'pair {self.pair_id}, '
-                    f'established at time {self.timestamp:.1f} '
-                    f'with {len(self.swap_nodes)} swaps')
+            return (
+                f"path between {self.alice_name} ({self.alice_edge_id}) "
+                f"and {self.bob_name} ({self.bob_edge_id}), "
+                f"pair {self.pair_id}, "
+                f"established at time {self.timestamp:.1f} "
+                f"with {len(self.swap_nodes)} swaps"
+            )
 
     class MemPos:
         def __init__(self, prv_pos, nxt_pos, dst_name, cur_name, path_id):
-            self.prv_pos  = prv_pos
-            self.nxt_pos  = nxt_pos
+            self.prv_pos = prv_pos
+            self.nxt_pos = nxt_pos
             self.dst_name = dst_name
             self.cur_name = cur_name
-            self.path_id  = path_id
+            self.path_id = path_id
 
         def __repr__(self):
-            return (f'node {self.cur_name}, path {self.path_id} '
-                    f'towards {self.dst_name}, memory positions '
-                    f'prv {self.prv_pos} nxt {self.nxt_pos}')
+            return (
+                f"node {self.cur_name}, path {self.path_id} "
+                f"towards {self.dst_name}, memory positions "
+                f"prv {self.prv_pos} nxt {self.nxt_pos}"
+            )
 
     """Network oracle: knows everything, can communicate at zero delay.
 
@@ -100,41 +109,47 @@ class Oracle(Protocol):
         This structure is overwritten at every new timeslot.
 
     """
-    def __init__(self, algorithm, metric, skip_policy,
-                 network, topology, app, stat, max_delay):
+
+    def __init__(
+        self, algorithm, metric, skip_policy, network, topology, app, stat, max_delay
+    ):
         super().__init__(name="Oracle")
 
-        assert algorithm   in { 'spf', 'minmax' }
-        assert metric      in { 'hops', 'dist' }
-        assert skip_policy in { 'none', 'always-skip', 'random-skip' }
+        assert algorithm in {"spf", "minmax"}
+        assert metric in {"hops", "dist"}
+        assert skip_policy in {"none", "always-skip", "random-skip"}
 
-        self._algorithm   = algorithm
-        self._metric      = metric
+        self._algorithm = algorithm
+        self._metric = metric
         self._skip_policy = skip_policy
-        self._topology    = topology
-        self._logical_topology = Topology('edges', edges=topology.edges())
-        self._network     = network
-        self._app         = app
-        self._stat        = stat
-        self._max_delay   = max_delay
+        self._topology = topology
+        self._logical_topology = Topology("edges", edges=topology.edges())
+        self._network = network
+        self._app = app
+        self._stat = stat
+        self._max_delay = max_delay
 
-        self._edges         = []
+        self._edges = []
         self._pending_nodes = set(topology.node_names)
-        self._next_pair_id  = 0
+        self._next_pair_id = 0
         self._pending_pairs = dict()
 
         self.timeslot = 0
-        self.mem_pos  = dict()
-        self.path     = dict()
+        self.mem_pos = dict()
+        self.path = dict()
 
         # Data structures for skip policies.
         self._num_swaps_avg = 0
         self._num_swaps_cnt = 0
 
-        logging.debug((f"Create Oracle for network {network.name}, "
-                       f"algorithm {algorithm}, metric {metric}, "
-                       f"skip policy {skip_policy}, max delay {max_delay}, "
-                       f"app {app.name}, nodes: {topology.node_names}"))
+        logging.debug(
+            (
+                f"Create Oracle for network {network.name}, "
+                f"algorithm {algorithm}, metric {metric}, "
+                f"skip policy {skip_policy}, max delay {max_delay}, "
+                f"app {app.name}, nodes: {topology.node_names}"
+            )
+        )
 
     def link_good(self, node_name, positions):
         """Mark a link as good, i.e., entanglement has succeeded.
@@ -146,7 +161,7 @@ class Oracle(Protocol):
         positions : list
             The identifiers of the memory position where entanglement has been
             detected as successful.
-        
+
         """
 
         # Check if this is a new timeslot
@@ -176,19 +191,19 @@ class Oracle(Protocol):
             Name of the current node that will send the message.
         dst : str
             Name of the destination node.
-        
+
         Returns
         -------
         int
             The identifier of the channel where to send the message.
-        
+
         """
 
         src_id = self._topology.get_id_by_name(src)
         dst_id = self._topology.get_id_by_name(dst)
         nxt_id = self._topology.next_hop(src_id, dst_id)
         return self._topology.incoming_id(src_id, nxt_id)
-        
+
     def success(self, path_id):
         """The path `path_id` in this timeslot is successful."""
 
@@ -201,8 +216,10 @@ class Oracle(Protocol):
         self._stat.add("meas", dist)
 
         # Measure fidelity
-        qubit_a, = self._network.nodes[path.alice_name].qmemory.peek([path.alice_edge_id])
-        qubit_b, = self._network.nodes[path.bob_name].qmemory.peek([path.bob_edge_id])
+        (qubit_a,) = self._network.nodes[path.alice_name].qmemory.peek(
+            [path.alice_edge_id]
+        )
+        (qubit_b,) = self._network.nodes[path.bob_name].qmemory.peek([path.bob_edge_id])
         fidelity = ns.qubits.fidelity([qubit_a, qubit_b], ks.b00, squared=True)
         self._stat.add(f"fidelity-{dist}", fidelity)
 
@@ -210,23 +227,23 @@ class Oracle(Protocol):
         # and when all its qubits have been established an end-to-end entanglement.
         if path.pair_id in self._pending_pairs:
             pair = self._pending_pairs[path.pair_id]
-            if pair[0][2] == 0:           
+            if pair[0][2] == 0:
                 delay = ns.sim_time() - pair[1]
-                self._stat.add('delay', delay * 1e-6)  # convert ns to ms
+                self._stat.add("delay", delay * 1e-6)  # convert ns to ms
                 del self._pending_pairs[path.pair_id]
 
         # Record latency as the time between when the entanglement was ready
         # at each node and the time when all the corrections have been applied
         # to one of the end nodes.
         latency = ns.sim_time() - path.timestamp
-        self._stat.add(f"latency-{dist}", latency * 1e-6) # convert ns to ms
+        self._stat.add(f"latency-{dist}", latency * 1e-6)  # convert ns to ms
 
         # Record the physical distance, in the shortest path, of e2e entanglement.
         bob_id = self._topology.get_id_by_name(path.bob_name)
         alice_id = self._topology.get_id_by_name(path.alice_name)
-        self._stat.add("length",
-                       self._topology.distance_path(
-                           bob_id, alice_id, path.swap_nodes))
+        self._stat.add(
+            "length", self._topology.distance_path(bob_id, alice_id, path.swap_nodes)
+        )
 
         # Mark the success/failure for a given path length in the full graph,
         # in number of hops.
@@ -239,11 +256,15 @@ class Oracle(Protocol):
             if fidelity > fid:
                 self._stat.count(f"success-{fid:.1f}", 1)
 
-        logging.debug((f"{ns.sim_time():.1f}: "
-                       f"timeslot #{self.timeslot}, e2e entanglement path {path_id} "
-                       f"{path}, distance {dist}: "
-                       f"fidelity {fidelity:.3f}, latency {latency:.3f}"))
-        
+        logging.debug(
+            (
+                f"{ns.sim_time():.1f}: "
+                f"timeslot #{self.timeslot}, e2e entanglement path {path_id}, "
+                f"{path}, distance {dist}: "
+                f"fidelity {fidelity:.3f}, latency {latency:.3f}"
+            )
+        )
+
         # Remove the path once it is found to be successful
         del self.path[path_id]
 
@@ -269,37 +290,48 @@ class Oracle(Protocol):
         for pair_id in sorted(self._pending_pairs.keys()):
             e2e_pairs.append((pair_id, False))
         path_id = 0
-        cur_pair_ndx = len(e2e_pairs) # Beyond last element
+        cur_pair_ndx = len(e2e_pairs)  # Beyond last element
         while e2e_pairs:
             # Wrap-around if the end is reached
             if cur_pair_ndx == len(e2e_pairs):
-                cur_pair_ndx = 0 # Wrap-around
+                cur_pair_ndx = 0  # Wrap-around
             cur_pair_id = e2e_pairs[cur_pair_ndx][0]
             cur_elem = self._pending_pairs[cur_pair_id]
             cur_pair = cur_elem[0]
             add_path_ret = self._add_path(
-                cur_pair[0], cur_pair[1], path_id, cur_pair_id)
+                cur_pair[0], cur_pair[1], path_id, cur_pair_id
+            )
             if add_path_ret is None:
                 # The current pair cannot be served in the reduced graph
                 del e2e_pairs[cur_pair_ndx]
                 continue
-            
+
             #
             # An end-to-end path has been found for the current pair: hurray!
             #
 
             # Check if, however, the path selected has to be skipped.
             num_swaps = len(add_path_ret[0].swap_nodes)
-            if e2e_pairs[cur_pair_ndx][1] == False and \
-                num_swaps > self._num_swaps_avg and \
-                (self._skip_policy == 'always-skip' or \
-                (self._skip_policy == 'random-skip' and \
-                random.random() < (1 - self._num_swaps_avg / num_swaps))):
+            if (
+                e2e_pairs[cur_pair_ndx][1] == False
+                and num_swaps > self._num_swaps_avg
+                and (
+                    self._skip_policy == "always-skip"
+                    or (
+                        self._skip_policy == "random-skip"
+                        and random.random() < (1 - self._num_swaps_avg / num_swaps)
+                    )
+                )
+            ):
 
-                logging.debug((f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, "
-                               f"skipping the entry found between {cur_pair[0]} "
-                               f"and {cur_pair[1]} path {path_id}: "
-                               f"swaps avg {self._num_swaps_avg:.1f} cur {num_swaps}"))
+                logging.debug(
+                    (
+                        f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, "
+                        f"skipping the entry found between {cur_pair[0]} "
+                        f"and {cur_pair[1]} path {path_id}: "
+                        f"swaps avg {self._num_swaps_avg:.1f} cur {num_swaps}"
+                    )
+                )
 
                 # Mark this pair as non-skippable in this routing epoch.
                 e2e_pairs[cur_pair_ndx] = (e2e_pairs[cur_pair_ndx][0], True)
@@ -318,13 +350,13 @@ class Oracle(Protocol):
                 self.mem_pos[mem_pos.cur_name].append(mem_pos)
 
             # Update the average number of swaps for the skip policies.
-            self._num_swaps_avg = \
-                (self._num_swaps_avg * self._num_swaps_cnt + num_swaps) / \
-                (self._num_swaps_cnt + 1)
+            self._num_swaps_avg = (
+                self._num_swaps_avg * self._num_swaps_cnt + num_swaps
+            ) / (self._num_swaps_cnt + 1)
             self._num_swaps_cnt += 1
 
             # Move to the next pair.
-            if cur_pair[2] == 0: # Special value: means infinite
+            if cur_pair[2] == 0:  # Special value: means infinite
                 cur_pair_ndx += 1
             else:
                 if cur_pair[2] == 1:
@@ -334,12 +366,16 @@ class Oracle(Protocol):
                     cur_pair_ndx += 1
                 self._pending_pairs[cur_pair_id] = (
                     (cur_pair[0], cur_pair[1], cur_pair[2] - 1),
-                    cur_elem[1]
-                    )
+                    cur_elem[1],
+                )
             path_id += 1
-    
-        logging.debug((f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, "
-                       f"found {path_id} end-to-end entanglement paths"))
+
+        logging.debug(
+            (
+                f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, "
+                f"found {path_id} end-to-end entanglement paths"
+            )
+        )
 
         # Notify immediately success for all the e2e paths with no swap nodes.
         immediate_success = []
@@ -366,16 +402,21 @@ class Oracle(Protocol):
         for cur_pair_id, cur_pair in self._pending_pairs.items():
             if (now - cur_pair[1]) > self._max_delay:
                 to_remove.append(cur_pair_id)
-        
+
         if to_remove:
-            logging.debug((f"{ns.sim_time():.1f}: dropping the following "
-                           f"e2e pairs: {to_remove}"))
+            logging.debug(
+                (
+                    f"{ns.sim_time():.1f}: dropping the following "
+                    f"e2e pairs: {to_remove}"
+                )
+            )
         for cur_pair_id in to_remove:
             cur_pair = self._pending_pairs[cur_pair_id]
             self._stat.count("failure", 1)
             len_hops = self._logical_topology.distance(
                 self._topology.get_id_by_name(cur_pair[0][0]),
-                self._topology.get_id_by_name(cur_pair[0][1]))
+                self._topology.get_id_by_name(cur_pair[0][1]),
+            )
             self._stat.count(f"lenrate-{len_hops}", 0)
             del self._pending_pairs[cur_pair_id]
 
@@ -404,7 +445,7 @@ class Oracle(Protocol):
             The identifier of the path to use.
         cur_pair_id : int
             The identifier of the e2e pair to serve.
-        
+
         Returns
         -------
             None if an end-to-end path was not found for the given pair of nodes.
@@ -425,27 +466,45 @@ class Oracle(Protocol):
             graph_bi = graph_uni.extract_bidirectional()
 
         except EmptyTopology:
-            logging.debug((f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, "
-                           f"{alice_name} -> {bob_name} [path {path_id}]: "
-                           f"empty reduced graph"))
+            logging.debug(
+                (
+                    f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, "
+                    f"{alice_name} -> {bob_name} [path {path_id}]: "
+                    f"empty reduced graph"
+                )
+            )
             return None
 
         # logging.debug(f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, graph {graph_uni}")
-        logging.debug(f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, reduced graph {graph_bi}")
+        logging.debug(
+            f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, reduced graph {graph_bi}"
+        )
         # graph_bi.save_dot(f"graph_bi{self.timeslot}")
 
         # Retrieve from the application the list of pairs with e2e entanglement
-        alice = graph_bi.get_id_by_name(alice_name) if alice_name in graph_bi.node_names else None
-        bob = graph_bi.get_id_by_name(bob_name) if bob_name in graph_bi.node_names else None
+        alice = (
+            graph_bi.get_id_by_name(alice_name)
+            if alice_name in graph_bi.node_names
+            else None
+        )
+        bob = (
+            graph_bi.get_id_by_name(bob_name)
+            if bob_name in graph_bi.node_names
+            else None
+        )
 
         # Search the path from bob to alice, but only if both are still in
         # the reduced graph
         swap_nodes = self._path_selection(bob, alice, graph_bi)
 
         if swap_nodes is None:
-            logging.debug((f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, "
-                           f"{alice_name} -> {bob_name} [path {path_id}]: "
-                           f"no way to create an e2e entanglement path"))
+            logging.debug(
+                (
+                    f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, "
+                    f"{alice_name} -> {bob_name} [path {path_id}]: "
+                    f"no way to create an e2e entanglement path"
+                )
+            )
             return None
 
         # There is a path between alice and bob
@@ -462,7 +521,7 @@ class Oracle(Protocol):
             self._topology.incoming_id(bob, bob_prv),
             swap_nodes,
             ns.sim_time(),
-            cur_pair_id
+            cur_pair_id,
         )
 
         # If there are no intermediate nodes, then alice and bob shared
@@ -472,36 +531,43 @@ class Oracle(Protocol):
             return (oracle_path, [[alice, bob], [bob, alice]], [])
 
         edges_to_remove = []
-        mem_pos_to_add  = []
+        mem_pos_to_add = []
         for i in range(len(swap_nodes)):
             cur = swap_nodes[i]
-            prv = bob if i == 0 else swap_nodes[i-1]
-            nxt = alice if i == (len(swap_nodes)-1) else swap_nodes[i+1]
+            prv = bob if i == 0 else swap_nodes[i - 1]
+            nxt = alice if i == (len(swap_nodes) - 1) else swap_nodes[i + 1]
             prv_pos = self._topology.incoming_id(cur, prv)
             nxt_pos = self._topology.incoming_id(cur, nxt)
             logging.debug(
-                (f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, "
-                 f"{alice_name} -> {bob_name} [path {path_id}]: "
-                 f"on node {cur} entangle node {prv} (mem pos {prv_pos}) "
-                 f"and node {nxt} (mem pos {nxt_pos})"))
+                (
+                    f"{ns.sim_time():.1f}: timeslot #{self.timeslot}, "
+                    f"{alice_name} -> {bob_name} [path {path_id}]: "
+                    f"on node {cur} entangle node {prv} (mem pos {prv_pos}) "
+                    f"and node {nxt} (mem pos {nxt_pos})"
+                )
+            )
 
             edges_to_remove.append([cur, prv])
             edges_to_remove.append([prv, cur])
 
-            mem_pos_to_add.append(Oracle.MemPos(
-                prv_pos, nxt_pos,
-                self._topology.get_name_by_id(bob),
-                self._topology.get_name_by_id(cur),
-                path_id))
+            mem_pos_to_add.append(
+                Oracle.MemPos(
+                    prv_pos,
+                    nxt_pos,
+                    self._topology.get_name_by_id(bob),
+                    self._topology.get_name_by_id(cur),
+                    path_id,
+                )
+            )
 
         edges_to_remove.append([alice, alice_nxt])
-        edges_to_remove.append([alice_nxt, alice])                
+        edges_to_remove.append([alice_nxt, alice])
 
         return (oracle_path, edges_to_remove, mem_pos_to_add)
 
     def _path_selection(self, src, dst, graph_bi):
         """Return the list of intermediate nodes to perform swapping.
-        
+
         Parameters
         ----------
         src : int
@@ -515,7 +581,7 @@ class Oracle(Protocol):
 
         if src is None or dst is None:
             return None
-        
+
         # The nodes src and dst may be None, but if they aren't then
         # we assume they both exist in the bidirectional graph.
         nodes = graph_bi.nodes()
@@ -527,23 +593,23 @@ class Oracle(Protocol):
         if graph_bi.isedge(src, dst):
             return []
 
-        if self._algorithm == 'spf':
+        if self._algorithm == "spf":
             # If we count hops rather than distance, then we change all
             # the weights of the reduced graph so that all hops have the same cost
-            if self._metric == 'hops':
+            if self._metric == "hops":
                 graph_bi.change_all_weights(1)
             else:
-                assert self._metric == 'dist'
+                assert self._metric == "dist"
 
             # Find the shortest path tree and return the shortest path
             # from src to dst, if any, otherwise return None.
             prev, _ = graph_bi.spt(dst)
-            
+
             if prev is None or prev[src] is None:
                 return None
             return Topology.traversing(prev, src, dst)
 
-        elif self._algorithm == 'minmax':
+        elif self._algorithm == "minmax":
             # Print where SPF would have picked a shorter path, in num hops
             # spfprev, _ = graph_bi.spt(dst)
             # if spfprev is not None and spfprev[src] is not None:
@@ -557,4 +623,5 @@ class Oracle(Protocol):
             return graph_bi.minmax(dst, src, self._logical_topology, omega=1000)
 
         raise NotImplementedError(
-            f'Unknown path selection algorithm: {self._algorithm}')
+            f"Unknown path selection algorithm: {self._algorithm}"
+        )
